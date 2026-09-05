@@ -37,6 +37,12 @@ python -m moss_mcp.bridge moss_mcp.server
 python -m moss_mcp.web_server
 ```
 
+Windows 也可以双击 `scripts/start_web.bat` 单独启动 Web 页；它不会启动 MCP bridge。需要指定端口或不自动打开浏览器时，可以执行：
+
+```powershell
+scripts\start_web.bat -Port 8767 -NoBrowser
+```
+
 默认访问 `http://127.0.0.1:8766/`。页面里输入文字、材料、厚度、雕刻/切割模式和网络设备信息后，先点“生成预览”。生成步骤只创建文字任务、预览图和 G-code，不连接激光机。
 
 页面默认选择“优先复用已有 G-code”。后端会在 `LASER_PREPARED_GCODE_DIR` 指向的目录中按文字内容查找 `.gcode` / `.nc`：先精确匹配文件名，再做包含匹配；唯一命中时把该文件纳入 workflow 预览，多命中时提示用户指定文件。关闭该选项后才会强制按文字重新生成 G-code。
