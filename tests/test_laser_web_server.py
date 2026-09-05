@@ -1598,7 +1598,7 @@ class LaserWebServerTests(unittest.TestCase):
         # 发送链路已接入：真实 confirm_send / cancel 调用点，无模拟发送逻辑。
         self.assertIn('action: "confirm_send"', html)
         self.assertIn('action: "cancel"', html)
-        self.assertIn('network_host: host', html)
+        self.assertIn('payload.network_host = state.host || ""', html)
         self.assertNotIn("发送未接入", html)
 
     def test_workflow_action_confirm_send_strips_production_form_residue(self):

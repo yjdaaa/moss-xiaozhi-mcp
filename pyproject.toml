@@ -26,7 +26,7 @@ classifiers = [
     "Topic :: Home Automation",
 ]
 dependencies = [
-    "mcp>=1.8.1",
+    "mcp>=1.8.1,<2",
     "pydantic>=2.11.4",
     "python-dotenv>=1.0.0",
     "websockets>=11.0.3",
