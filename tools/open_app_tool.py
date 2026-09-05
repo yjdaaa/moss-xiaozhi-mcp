@@ -81,11 +81,13 @@ def _build_error_result(message, website_url):
         result["url"] = website_url
     return result
 
-def _open_app(argument: str, payload='', current_system=system, run=None, popen=None) -> dict:
+def _open_app(argument: str, payload='', current_system=None, run=None, popen=None) -> dict:
     if run is None:
         run = subprocess.run
     if popen is None:
         popen = subprocess.Popen
+    if current_system is None:
+        current_system = system
 
     argument = argument.strip()
     argument, payload, website_url = _normalize_site_alias(argument, payload)
