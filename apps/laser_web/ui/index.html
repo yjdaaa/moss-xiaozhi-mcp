@@ -1,0 +1,3567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>光铸 · LASER FORGE — 激光创作工作台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080912'/%3E%3Cpath d='M9 6h3l3 12h2l3-12h3l-6 20h-2z' fill='%2335e0ff'/%3E%3C/svg%3E">
+<script src="vendor/lucide.min.js"></script>
+<script src="vendor/excalidraw/forge-draw.bundle.js"></script>
+<script>
+  if (window.ForgeDraw) {
+    window.dispatchEvent(new CustomEvent("excalidraw-loaded"));
+  } else {
+    window.addEventListener("load", () => {
+      if (!window.ForgeDraw) {
+        window.dispatchEvent(new CustomEvent("excalidraw-load-error", { detail: new Error("本地 bundle 未加载") }));
+      }
+    });
+  }
+</script>
+<link rel="stylesheet" href="vendor/excalidraw/index.css">
+<style>
+/* ============================================================
+   光铸 LASER FORGE — 激光创作工作台
+   暗色宇宙 × 激光光束 × 粒子物理 × 实验排版
+   ============================================================ */
+:root {
+  --bg-0: #04050a;
+  --bg-1: #080b14;
+  --bg-2: #0c1120;
+  --panel: rgba(13, 18, 32, 0.62);
+  --panel-strong: rgba(15, 21, 38, 0.88);
+  --ink: #e8ecf6;
+  --ink-dim: #8b93ab;
+  --ink-faint: #4d556e;
+  --laser: #35e0ff;
+  --laser-2: #7ef9ff;
+  --magenta: #f472d0;
+  --gold: #ffc65c;
+  --green: #4df0a8;
+  --danger: #ff5d6c;
+  --line: rgba(140, 165, 255, 0.14);
+  --line-bright: rgba(120, 220, 255, 0.5);
+  --font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg-0);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: rgba(53, 224, 255, 0.35); color: #fff; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-0); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(53,224,255,.5), rgba(244,114,208,.5));
+  border-radius: 8px; border: 2px solid var(--bg-0);
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select, textarea { font-family: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+[hidden] { display: none !important; }
+
+/* ---------- 背景层 ---------- */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: -3;
+  background:
+    radial-gradient(1200px 700px at 75% -10%, rgba(53,224,255,0.09), transparent 60%),
+    radial-gradient(1000px 600px at 10% 110%, rgba(244,114,208,0.07), transparent 60%),
+    linear-gradient(180deg, var(--bg-0), var(--bg-1) 55%, #060810);
+}
+.bg-grid {
+  position: fixed; inset: 0; z-index: -2;
+  background-image:
+    linear-gradient(rgba(120,180,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,180,255,0.05) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, black 20%, transparent 75%);
+  transform: perspective(600px) rotateX(58deg) translateY(-8%) scale(1.5);
+  transform-origin: 50% 0;
+  animation: gridDrift 24s linear infinite;
+}
+@keyframes gridDrift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 144px, 144px 0; }
+}
+#cursor-glow {
+  position: fixed; z-index: 0; width: 520px; height: 520px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(53,224,255,0.10), rgba(244,114,208,0.05) 45%, transparent 70%);
+  transform: translate(-50%, -50%);
+  transition: opacity .4s;
+  will-change: transform;
+}
+.noise {
+  position: fixed; inset: 0; z-index: 40; pointer-events: none; opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(4,6,11,0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+  position: relative; width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border: 1px solid rgba(53,224,255,0.5);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(53,224,255,0.18), rgba(244,114,208,0.12));
+  box-shadow: 0 0 22px rgba(53,224,255,0.25), inset 0 0 12px rgba(53,224,255,0.12);
+}
+.brand-mark::after {
+  content: ""; position: absolute; inset: -1px; border-radius: 10px;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+  background-size: 250% 100%; animation: shine 4.5s linear infinite;
+}
+@keyframes shine { 0% { background-position: 130% 0; } 55%, 100% { background-position: -130% 0; } }
+.brand-name {
+  font-size: 14px; font-weight: 700; letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #fff, var(--laser));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand-sub { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.3em; margin-top: 2px; }
+.topbar-links { display: flex; align-items: center; gap: 26px; }
+.topbar-links a {
+  font-size: 12px; letter-spacing: 0.18em; color: var(--ink-dim);
+  text-transform: uppercase; position: relative; padding: 4px 0;
+  transition: color .3s;
+}
+.topbar-links a:hover { color: var(--laser); }
+.topbar-links a::after {
+  content: ""; position: absolute; left: 0; bottom: 0; height: 1px; width: 0;
+  background: var(--laser); transition: width .35s var(--ease-out);
+  box-shadow: 0 0 8px var(--laser);
+}
+.topbar-links a:hover::after { width: 100%; }
+.conn-pill {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(10,14,26,0.7); font-size: 11px; letter-spacing: 0.16em;
+  color: var(--ink-dim); text-transform: uppercase;
+  transition: border-color .3s, box-shadow .3s;
+}
+.host-input {
+  width: 148px; padding: 6px 12px; border: 1px solid var(--line);
+  border-radius: 999px; background: rgba(10,14,26,0.7);
+  color: var(--ink); font-size: 11px; letter-spacing: 0.04em;
+  outline: none; transition: border-color .3s, box-shadow .3s;
+}
+.host-input:focus { border-color: var(--line-bright); box-shadow: 0 0 12px rgba(53,224,255,0.15); }
+.host-input::placeholder { color: var(--ink-dim); opacity: 0.7; }
+.feedback-row { display: flex; gap: 10px; align-items: stretch; margin-top: 12px; }
+.feedback-row textarea {
+  flex: 1; resize: vertical; min-height: 40px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(10,14,26,0.6); color: var(--ink);
+  font-size: 12px; font-family: inherit; outline: none;
+}
+.feedback-row textarea:focus { border-color: var(--line-bright); }
+.feedback-row .btn-sm { flex: none; align-self: center; padding: 8px 16px; font-size: 12px; }
+.preview-nav {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0;
+}
+.preview-nav-btn {
+  padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(10,14,26,0.6); color: var(--ink-dim);
+  font-size: 11px; letter-spacing: 0.06em; cursor: pointer;
+  transition: border-color .3s, color .3s, background .3s;
+}
+.preview-nav-btn.active {
+  border-color: var(--laser); color: var(--laser); background: rgba(53,224,255,0.08);
+}
+.preview-nav-links { margin-left: auto; display: flex; gap: 12px; font-size: 11px; }
+.preview-nav-links a { color: var(--ink-dim); text-decoration: none; transition: color .3s; }
+.preview-nav-links a:hover { color: var(--laser); }
+.warn-text { color: #ffb020; font-size: 11px; line-height: 1.5; letter-spacing: 0.02em; }
+.conn-pill.online {
+  border-color: rgba(77,240,168,0.5); color: var(--green);
+  box-shadow: 0 0 18px rgba(77,240,168,0.15);
+}
+.led {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ink-faint); position: relative; flex-shrink: 0;
+}
+.led::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%;
+  border: 1px solid currentColor; opacity: 0; animation: ledPulse 2.4s infinite;
+}
+.conn-pill.online .led { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.conn-pill.online .led::after { opacity: .6; }
+.conn-pill.offline .led { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+.conn-pill.offline .led::after { opacity: .6; animation-duration: 1.1s; }
+@keyframes ledPulse {
+  0% { transform: scale(0.6); opacity: .7; }
+  70%, 100% { transform: scale(1.7); opacity: 0; }
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  padding: 140px 24px 60px;
+  text-align: center;
+  overflow: hidden;
+}
+.hero::before {
+  content: ""; position: absolute; left: 50%; top: 8%;
+  width: 2px; height: 34%;
+  background: linear-gradient(180deg, transparent, var(--laser), transparent);
+  opacity: 0.55; filter: blur(0.4px);
+  box-shadow: 0 0 30px var(--laser);
+  animation: beamFlicker 7s ease-in-out infinite;
+  transform: translateX(-50%);
+}
+.hero::after {
+  content: ""; position: absolute; left: 50%; top: 8%;
+  width: 2px; height: 0;
+  background: linear-gradient(180deg, transparent, var(--magenta));
+  filter: blur(0.4px); box-shadow: 0 0 24px var(--magenta);
+  transform: translateX(140px) rotate(14deg);
+  animation: beamRise 9s ease-in-out infinite;
+}
+@keyframes beamFlicker {
+  0%, 100% { opacity: .5; height: 34%; }
+  50% { opacity: .95; height: 40%; }
+}
+@keyframes beamRise {
+  0%, 30% { height: 0; opacity: 0; }
+  55% { height: 46%; opacity: .7; }
+  80%, 100% { height: 0; opacity: 0; }
+}
+.hero-eyebrow {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.5em;
+  color: var(--laser); text-transform: uppercase; margin-bottom: 34px;
+  opacity: 0; animation: riseIn .9s var(--ease-out) .15s forwards;
+}
+.hero-eyebrow::before, .hero-eyebrow::after {
+  content: ""; height: 1px; width: 44px;
+  background: linear-gradient(90deg, transparent, var(--laser));
+}
+.hero-eyebrow::after { background: linear-gradient(90deg, var(--laser), transparent); }
+.hero-title {
+  font-size: clamp(3.2rem, 11vw, 9.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  display: flex; flex-direction: column; align-items: center;
+}
+.hero-title .row { display: flex; gap: 0.18em; overflow: hidden; }
+.hero-title .row > span { display: inline-block; }
+.hero-title .outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(232,236,246,0.85);
+  filter: drop-shadow(0 0 26px rgba(53,224,255,0.22));
+}
+.hero-title .solid {
+  background: linear-gradient(100deg, #fff 10%, var(--laser) 55%, var(--magenta) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 34px rgba(53,224,255,0.4));
+}
+.hero-title .char { transform: translateY(115%); animation: charUp .85s var(--ease-out) forwards; }
+@keyframes charUp { to { transform: translateY(0); } }
+.hero-cn {
+  margin-top: 26px;
+  font-size: clamp(1.1rem, 2.6vw, 1.7rem);
+  font-weight: 300; letter-spacing: 0.62em;
+  color: var(--ink-dim);
+  padding-left: 0.62em;
+  opacity: 0; animation: riseIn 1s var(--ease-out) .9s forwards;
+}
+.hero-cn b { color: var(--ink); font-weight: 600; }
+.hero-desc {
+  margin-top: 22px; max-width: 560px;
+  font-size: 14px; line-height: 2; color: var(--ink-faint);
+  opacity: 0; animation: riseIn 1s var(--ease-out) 1.1s forwards;
+}
+.hero-desc code {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--laser-2); background: rgba(53,224,255,0.07);
+  padding: 2px 8px; border-radius: 4px;
+  border: 1px solid rgba(53,224,255,0.2);
+}
+.hero-cta {
+  margin-top: 46px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  opacity: 0; animation: riseIn 1s var(--ease-out) 1.3s forwards;
+}
+@keyframes riseIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+.btn {
+  position: relative; display: inline-flex; align-items: center; gap: 10px;
+  padding: 15px 30px; border-radius: 12px;
+  font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  overflow: hidden; transition: transform .3s var(--ease-snap), box-shadow .3s;
+  border: 1px solid transparent;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary {
+  background: linear-gradient(115deg, #0aa8c9, #4dd7ff 55%, #b06cf8);
+  color: #03131a; font-weight: 700;
+  box-shadow: 0 8px 34px rgba(53,224,255,0.35), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 44px rgba(53,224,255,0.5); }
+.btn-primary::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 25%, rgba(255,255,255,0.7) 50%, transparent 75%);
+  transform: translateX(-130%);
+  transition: transform .8s var(--ease-out);
+}
+.btn-primary:hover::before { transform: translateX(130%); }
+.btn-ghost {
+  border-color: rgba(140,165,255,0.25); color: var(--ink-dim);
+  background: rgba(12,17,32,0.5); backdrop-filter: blur(8px);
+}
+.btn-ghost:hover { border-color: var(--line-bright); color: var(--ink); box-shadow: 0 0 24px rgba(53,224,255,0.12); }
+.scroll-hint {
+  position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: var(--ink-faint); font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase;
+  opacity: 0; animation: riseIn 1s var(--ease-out) 1.8s forwards;
+}
+.scroll-hint .wheel {
+  width: 24px; height: 40px; border: 1px solid var(--ink-faint); border-radius: 14px;
+  position: relative;
+}
+.scroll-hint .wheel::before {
+  content: ""; position: absolute; left: 50%; top: 7px; width: 3px; height: 8px;
+  border-radius: 2px; background: var(--laser);
+  transform: translateX(-50%);
+  animation: wheelDot 1.8s ease-in-out infinite;
+}
+@keyframes wheelDot { 0% { top: 7px; opacity: 1; } 70% { top: 22px; opacity: 0; } 100% { top: 7px; opacity: 0; } }
+.hero-side-stats {
+  position: absolute; right: 34px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 18px; text-align: right;
+  opacity: 0; animation: riseIn 1s var(--ease-out) 1.5s forwards;
+}
+.hero-side-stats .stat b {
+  display: block; font-family: var(--font-mono); font-size: 15px; color: var(--ink);
+  letter-spacing: 0.1em;
+}
+.hero-side-stats .stat span { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.28em; text-transform: uppercase; }
+.hero-side-num {
+  position: absolute; left: 34px; top: 50%; transform: translateY(-50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.6em;
+  color: var(--ink-faint); text-transform: uppercase;
+  opacity: 0; animation: riseIn 1s var(--ease-out) 1.5s forwards;
+}
+.hero-side-num i { color: var(--laser); font-style: normal; }
+
+/* ---------- 分节 ---------- */
+.section {
+  position: relative; max-width: 1180px; margin: 0 auto;
+  padding: 110px 28px 40px;
+}
+.section-head { margin-bottom: 46px; }
+.sec-tag {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.4em;
+  color: var(--laser); text-transform: uppercase;
+}
+.sec-tag::before { content: ""; width: 26px; height: 1px; background: var(--laser); box-shadow: 0 0 8px var(--laser); }
+.sec-title {
+  margin-top: 16px;
+  font-size: clamp(2rem, 5.4vw, 3.4rem);
+  font-weight: 800; letter-spacing: -0.01em; line-height: 1.05;
+}
+.sec-title .accent {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(53,224,255,0.75);
+}
+.sec-sub { margin-top: 14px; color: var(--ink-faint); font-size: 14px; max-width: 620px; }
+.reveal { opacity: 0; transform: translateY(46px); transition: opacity .9s var(--ease-out), transform .9s var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* ---------- 工作台 ---------- */
+.console-wrap { perspective: 1600px; }
+.console {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: linear-gradient(165deg, rgba(16,23,42,0.85), rgba(8,11,20,0.92));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 60px rgba(53,224,255,0.05);
+  overflow: hidden;
+  transition: transform .5s var(--ease-out);
+  transform-style: preserve-3d;
+}
+.console::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(120deg, rgba(53,224,255,0.06), transparent 32%),
+    radial-gradient(600px 300px at 85% -20%, rgba(244,114,208,0.10), transparent 60%);
+}
+.console::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-bright), transparent);
+}
+.console .laser-edge {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: 22px;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow .5s;
+}
+.console:hover .laser-edge {
+  box-shadow: inset 0 0 0 1px rgba(53,224,255,0.25), inset 0 0 40px rgba(53,224,255,0.05);
+}
+.console-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px; border-bottom: 1px solid var(--line);
+  position: relative; z-index: 2;
+}
+.console-head .dots { display: flex; gap: 7px; }
+.console-head .dots i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+.console-head .dots i:nth-child(1) { background: rgba(255,93,108,0.85); }
+.console-head .dots i:nth-child(2) { background: rgba(255,198,92,0.85); }
+.console-head .dots i:nth-child(3) { background: rgba(77,240,168,0.85); }
+.console-title {
+  font-size: 12px; letter-spacing: 0.32em; color: var(--ink-dim);
+  text-transform: uppercase; font-family: var(--font-mono);
+}
+.console-title i { color: var(--laser); font-style: normal; }
+.console-head .right { display: flex; align-items: center; gap: 14px; }
+.console-body { position: relative; z-index: 2; }
+.console-left { padding: 26px 26px 30px; }
+
+/* 连接配置：保持工作台视觉，配置字段由真实运行配置驱动 */
+.connection-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  padding: 12px 24px; border-bottom: 1px solid var(--line);
+  background: rgba(8, 12, 24, 0.52); position: relative; z-index: 2;
+}
+.connection-choice, .connection-field {
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.connection-label, .connection-field label {
+  color: var(--ink-faint); font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.connection-select, .connection-input, .connection-field select, .connection-field input {
+  min-height: 30px; padding: 5px 9px; border: 1px solid var(--line);
+  border-radius: 8px; background: rgba(6, 9, 18, .82); color: var(--ink);
+  font-size: 11px; outline: none; transition: border-color .25s, box-shadow .25s;
+}
+.connection-select:focus, .connection-input:focus, .connection-field select:focus,
+.connection-field input:focus { border-color: var(--line-bright); box-shadow: 0 0 0 2px rgba(53,224,255,.1); }
+.connection-input { width: 150px; }
+.connection-field input[type=number] { width: 92px; }
+.connection-note {
+  flex: 1 1 180px; min-width: 160px; color: var(--ink-faint);
+  font: 10px var(--font-mono); letter-spacing: .04em; line-height: 1.45;
+}
+.connection-note.warn { color: var(--gold); }
+.connection-note.ok { color: var(--green); }
+.connection-serial-fields, .connection-network-fields {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.connection-serial-fields[hidden], .connection-network-fields[hidden] { display: none; }
+.connection-refresh {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 30px;
+  padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink-dim); font-size: 10px; background: rgba(10,14,26,.7);
+}
+.connection-refresh:hover { color: var(--laser); border-color: var(--line-bright); }
+.connection-refresh svg { width: 12px; height: 12px; }
+
+/* 输入区 */
+.field-label {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--ink-dim); margin-bottom: 10px;
+}
+.field-label .hint { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.1em; font-family: var(--font-mono); }
+.text-input-wrap { position: relative; }
+.text-input {
+  width: 100%; min-height: 108px; resize: vertical;
+  background: rgba(6,9,18,0.8);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 18px; font-size: 16px; line-height: 1.7; color: var(--ink);
+  transition: border-color .3s, box-shadow .3s;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+.text-input:focus {
+  outline: none; border-color: rgba(53,224,255,0.55);
+  box-shadow: 0 0 0 3px rgba(53,224,255,0.12), 0 0 30px rgba(53,224,255,0.08);
+}
+.text-input::placeholder { color: var(--ink-faint); }
+.input-beam {
+  position: absolute; left: 8px; right: 8px; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--laser), var(--magenta), transparent);
+  transform: scaleX(0); transform-origin: center;
+  transition: transform .5s var(--ease-out);
+  box-shadow: 0 0 12px var(--laser);
+  pointer-events: none;
+}
+.text-input:focus ~ .input-beam, .text-input-wrap:focus-within .input-beam { transform: scaleX(1); }
+.char-count {
+  position: absolute; right: 14px; bottom: 12px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+  letter-spacing: 0.15em;
+}
+.char-count .num { color: var(--laser); }
+/* 输入源面板：上传 + 画板 */
+.source-panel { margin-top: 16px; display: grid; gap: 12px; }
+.source-panel[hidden] { display: none; }
+.source-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 30px 18px; border-radius: 14px;
+  border: 1px dashed rgba(53,224,255,0.32);
+  background: rgba(6,9,18,0.5);
+  cursor: pointer; text-align: center;
+  transition: border-color .3s, box-shadow .3s, background .3s;
+}
+.source-drop:hover, .source-drop.over {
+  border-color: var(--laser);
+  background: rgba(53,224,255,0.06);
+  box-shadow: 0 0 26px rgba(53,224,255,0.1), inset 0 0 24px rgba(53,224,255,0.05);
+}
+.source-drop svg { width: 30px; height: 30px; color: var(--laser); opacity: .9; }
+.source-drop .sd-title { font-size: 13px; color: var(--ink); letter-spacing: 0.06em; }
+.source-drop .sd-sub { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.14em; font-family: var(--font-mono); text-transform: uppercase; }
+.source-drop .file-name {
+  margin-top: 4px; padding: 5px 13px; border-radius: 999px;
+  background: rgba(53,224,255,0.1); border: 1px solid rgba(53,224,255,0.35);
+  color: var(--laser-2); font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.source-drop.gcode { border-color: rgba(244,114,208,0.32); }
+.source-drop.gcode svg { color: var(--magenta); }
+.source-drop.gcode:hover, .source-drop.gcode.over {
+  border-color: var(--magenta);
+  background: rgba(244,114,208,0.06);
+  box-shadow: 0 0 26px rgba(244,114,208,0.1);
+}
+.draw-pad {
+  border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+  background: rgba(6,9,18,0.7);
+  display: flex; flex-direction: column;
+  height: 560px;
+  transition: height .12s var(--ease-out);
+}
+.draw-controls {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+  background: rgba(10,14,26,0.6);
+}
+.dc-group { display: flex; align-items: center; gap: 6px; }
+.dc-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-dim); font-family: var(--font-mono); white-space: nowrap;
+}
+.dc-group input, .dc-group select {
+  padding: 6px 8px; border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(6,9,18,0.8); color: var(--ink);
+  font-size: 12px; font-family: var(--font-mono);
+  transition: border-color .3s, box-shadow .3s;
+  width: auto;
+}
+.dc-group select { min-width: 120px; }
+.dc-group input { width: 64px; }
+.dc-group input[type="text"] { width: 130px; }
+.dc-group input:focus, .dc-group select:focus {
+  outline: none; border-color: rgba(53,224,255,0.55);
+  box-shadow: 0 0 0 3px rgba(53,224,255,0.12);
+}
+.dc-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: 9px;
+  border: 1px solid rgba(53,224,255,0.3); color: var(--laser);
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  background: rgba(53,224,255,0.07);
+  transition: all .3s;
+  white-space: nowrap;
+}
+.dc-btn:hover { background: rgba(53,224,255,0.15); box-shadow: 0 0 14px rgba(53,224,255,0.15); }
+.dc-btn svg { width: 13px; height: 13px; }
+#draw-excalidraw {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+#draw-excalidraw .excalidraw {
+  flex: 1;
+  min-height: 0;
+}
+#draw-excalidraw .excalidraw { --color-primary: #35e0ff; }
+/* 隐藏被错误撑开固定在底部的浮动工具栏（编辑/复制/删除/撤销/重做），
+   正常 Excalidraw 会在选中元素时动态弹出，此处被布局影响固定显示 */
+#draw-excalidraw .App-bottom-bar {
+  height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+.draw-resize {
+  height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: ns-resize;
+  border-top: 1px solid rgba(140,165,255,0.12);
+  background: rgba(8,12,22,0.7);
+  color: var(--ink-faint);
+  user-select: none;
+  touch-action: none;
+  transition: color .2s, background .2s;
+}
+.draw-resize:hover { color: var(--laser); background: rgba(53,224,255,0.06); }
+.draw-resize svg { width: 18px; height: 18px; }
+.draw-resize.dragging { color: var(--laser); background: rgba(53,224,255,0.1); }
+.draw-hint {
+  padding: 6px 14px; font-size: 10px; color: var(--ink-faint);
+  letter-spacing: 0.14em; font-family: var(--font-mono); text-transform: uppercase;
+  border-top: 1px solid rgba(140,165,255,0.08);
+}
+.tool-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.tool-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px; border-radius: 999px;
+  border: 1px solid var(--line); font-size: 12px; color: var(--ink-dim);
+  transition: all .3s; letter-spacing: 0.08em;
+}
+.tool-chip:hover { border-color: var(--line-bright); color: var(--ink); }
+.tool-chip.active {
+  border-color: rgba(53,224,255,0.6); color: var(--laser);
+  background: rgba(53,224,255,0.08);
+  box-shadow: 0 0 16px rgba(53,224,255,0.15);
+}
+.tool-chip svg { width: 14px; height: 14px; }
+.gen-row { display: flex; gap: 12px; margin-top: 20px; }
+.gen-row .btn { flex: 1; justify-content: center; }
+.console-ops { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(140,165,255,0.1); }
+.ops-title {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--ink-faint); font-family: var(--font-mono); margin-bottom: 12px;
+}
+.op-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--laser); box-shadow: 0 0 10px var(--laser);
+  animation: ledPulse 2.4s infinite;
+}
+.ops-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 8px; }
+.op-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 12px 6px; border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(8,12,22,0.6);
+  color: var(--ink-dim); font-size: 10px; letter-spacing: 0.14em;
+  transition: all .3s; text-transform: uppercase;
+}
+.op-btn:hover {
+  border-color: rgba(53,224,255,0.4); color: var(--laser);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4), 0 0 16px rgba(53,224,255,0.08);
+}
+.op-btn svg { width: 16px; height: 16px; }
+.op-btn.working { border-color: rgba(255,198,92,0.5); color: var(--gold); }
+.op-btn.working svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) {
+  .ops-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+.btn-scan {
+  background: linear-gradient(115deg, #0e6f8a, #14a7c7);
+  color: #eafcff; border-color: rgba(53,224,255,0.35);
+  box-shadow: 0 6px 26px rgba(53,224,255,0.22);
+}
+.btn-scan:hover { transform: translateY(-2px); box-shadow: 0 10px 34px rgba(53,224,255,0.34); }
+.btn-scan:disabled, .btn:disabled {
+  opacity: .45; cursor: not-allowed; transform: none !important;
+}
+
+/* 参数面板 */
+.param-block { margin-bottom: 24px; }
+.param-slider-row { display: flex; align-items: center; gap: 14px; }
+.param-slider-row .val {
+  font-family: var(--font-mono); font-size: 15px; color: var(--laser);
+  min-width: 58px; text-align: right; letter-spacing: 0.06em;
+}
+.param-slider-row .unit { font-size: 10px; color: var(--ink-faint); margin-left: 2px; }
+input[type=range] {
+  -webkit-appearance: none; appearance: none; flex: 1; height: 3px;
+  background: linear-gradient(90deg, var(--laser) var(--fill, 50%), rgba(140,165,255,0.14) var(--fill, 50%));
+  border-radius: 3px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 17px; height: 17px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--laser);
+  box-shadow: 0 0 14px rgba(53,224,255,0.8);
+  cursor: grab; transition: transform .2s var(--ease-snap);
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+input[type=range]::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: #fff; border: 3px solid var(--laser);
+  box-shadow: 0 0 14px rgba(53,224,255,0.8); cursor: grab;
+}
+.select-wrap { position: relative; }
+.select-wrap select {
+  width: 100%; appearance: none; -webkit-appearance: none;
+  background: rgba(6,9,18,0.8); border: 1px solid var(--line); border-radius: 12px;
+  padding: 13px 42px 13px 15px; font-size: 14px; color: var(--ink);
+  cursor: pointer; transition: border-color .3s, box-shadow .3s;
+}
+.select-wrap select:focus {
+  outline: none; border-color: rgba(53,224,255,0.55);
+  box-shadow: 0 0 0 3px rgba(53,224,255,0.12);
+}
+.select-wrap svg {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; color: var(--laser); pointer-events: none;
+}
+.param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* 右侧：预览（现为工作台底部全宽区块） */
+.preview-panel {
+  padding: 22px 26px 26px;
+  border-top: 1px solid var(--line);
+  position: relative; z-index: 2;
+  background: linear-gradient(180deg, rgba(10,14,26,0.35), transparent);
+}
+.preview-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; }
+.preview-stage {
+  position: relative;
+  min-height: 260px;
+  border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+  background:
+    radial-gradient(500px 300px at 50% 0%, rgba(53,224,255,0.05), transparent 65%),
+    linear-gradient(180deg, rgba(9,13,24,0.9), rgba(5,7,13,0.95));
+}
+.preview-stage::before {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(120,180,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,180,255,0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+.preview-stage .crosshair {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 26px; height: 26px; pointer-events: none; z-index: 2;
+}
+.preview-stage .crosshair::before, .preview-stage .crosshair::after {
+  content: ""; position: absolute; background: rgba(53,224,255,0.5);
+  box-shadow: 0 0 8px var(--laser);
+}
+.preview-stage .crosshair::before { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+.preview-stage .crosshair::after { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+#preview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+.preview-empty {
+  position: absolute; inset: 0; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  color: var(--ink-faint); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+  text-align: center; transition: opacity .5s;
+}
+.preview-empty svg { width: 42px; height: 42px; opacity: .5; animation: floaty 4s ease-in-out infinite; }
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+.preview-empty .ph { font-size: 11px; letter-spacing: 0.3em; }
+.scanline {
+  position: absolute; left: 0; right: 0; height: 2px; z-index: 2; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--laser) 18%, #fff 50%, var(--magenta) 82%, transparent);
+  filter: blur(0.3px);
+  box-shadow: 0 0 18px var(--laser), 0 0 40px rgba(53,224,255,0.5);
+  opacity: 0;
+}
+.scanline.on { opacity: 1; animation: scanY 3.6s linear infinite; }
+@keyframes scanY {
+  0% { top: 4%; }
+  50% { top: 96%; }
+  100% { top: 4%; }
+}
+.preview-side { display: flex; flex-direction: column; gap: 12px; }
+.preview-side-card {
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 16px;
+  background: rgba(8,12,22,0.6);
+}
+.psc-label {
+  font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--ink-faint); font-family: var(--font-mono); margin-bottom: 6px;
+}
+.psc-value {
+  font-family: var(--font-mono); font-size: 16px; color: var(--laser);
+  letter-spacing: 0.05em;
+}
+.psc-value.eta { color: var(--laser-2); }
+.preview-side-note {
+  font-size: 10px; color: var(--ink-faint); letter-spacing: 0.12em;
+  font-family: var(--font-mono); text-transform: uppercase;
+  padding: 0 4px;
+}
+.progress-track {
+  margin-top: 10px; height: 3px; border-radius: 3px; overflow: hidden;
+  background: rgba(140,165,255,0.12); position: relative;
+}
+.progress-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--laser), var(--magenta));
+  box-shadow: 0 0 14px rgba(53,224,255,0.8);
+  transition: width .3s var(--ease-out);
+  border-radius: 3px;
+}
+.progress-fill::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+  background-size: 200% 100%; animation: shine 2.2s linear infinite;
+}
+
+/* ---------- 材料库 ---------- */
+.material-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 16px; }
+.mat-card {
+  position: relative; border: 1px solid var(--line); border-radius: 18px;
+  padding: 22px 20px 20px; cursor: pointer; overflow: hidden;
+  background: linear-gradient(170deg, rgba(15,21,38,0.7), rgba(8,11,20,0.85));
+  transition: transform .4s var(--ease-out), border-color .3s, box-shadow .4s;
+}
+.mat-card:hover { transform: translateY(-6px); border-color: rgba(53,224,255,0.35); box-shadow: 0 18px 44px rgba(0,0,0,0.5), 0 0 30px rgba(53,224,255,0.08); }
+.mat-card.active {
+  border-color: rgba(53,224,255,0.7);
+  box-shadow: 0 0 34px rgba(53,224,255,0.16), inset 0 0 30px rgba(53,224,255,0.05);
+}
+.mat-card .mat-swatch {
+  width: 40px; height: 40px; border-radius: 12px; margin-bottom: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: inset 0 0 18px rgba(0,0,0,0.35);
+  transition: transform .4s var(--ease-snap);
+}
+.mat-card:hover .mat-swatch { transform: scale(1.12) rotate(-6deg); }
+.mat-card b { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.mat-card b svg { width: 13px; height: 13px; color: var(--laser); }
+.mat-card .mat-sub { margin-top: 4px; font-size: 11px; color: var(--ink-faint); }
+.mat-card .mat-specs {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(140,165,255,0.1);
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); letter-spacing: 0.05em;
+}
+.mat-card .mat-specs b { font-size: 11px; color: var(--laser-2); font-weight: 500; }
+.mat-card .check-mark {
+  position: absolute; top: 16px; right: 16px; width: 22px; height: 22px;
+  border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--laser), var(--magenta));
+  color: #04121a; opacity: 0; transform: scale(0.4);
+  transition: all .35s var(--ease-snap);
+}
+.mat-card .check-mark svg { width: 12px; height: 12px; }
+.mat-card.active .check-mark { opacity: 1; transform: scale(1); }
+.mat-head-actions { margin-top: 22px; display: flex; gap: 12px; flex-wrap: wrap; }
+.mat-head-actions .btn { padding: 10px 20px; font-size: 12px; border-radius: 11px; letter-spacing: 0.08em; }
+.mat-empty-hint {
+  grid-column: 1 / -1;
+  padding: 34px 20px; text-align: center;
+  border: 1px dashed var(--line); border-radius: 16px;
+  color: var(--ink-faint); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em;
+}
+.mat-card-actions {
+  position: absolute; right: 8px; bottom: 8px;
+  display: flex; gap: 4px; opacity: 0; transform: translateY(4px);
+  transition: opacity .3s, transform .3s var(--ease-out);
+}
+.mat-card:hover .mat-card-actions, .mat-card:focus-within .mat-card-actions { opacity: 1; transform: none; }
+.mat-card-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 8px;
+  background: rgba(10,14,26,0.7); border: 1px solid var(--line);
+  color: var(--ink-dim); transition: all .25s;
+}
+.mat-card-btn svg { width: 11px; height: 11px; }
+.mat-card-btn:hover { border-color: var(--line-bright); color: var(--ink); box-shadow: 0 0 12px rgba(53,224,255,0.18); }
+.mat-card-btn.danger:hover { border-color: rgba(244,114,208,0.7); color: var(--magenta); box-shadow: 0 0 12px rgba(244,114,208,0.22); }
+.mat-card .mat-specs { padding-right: 58px; }
+
+/* ---------- 材料管理弹窗 ---------- */
+.mat-modal-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(3,5,10,0.62); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  animation: fadeIn .25s var(--ease-out);
+}
+.mat-modal-backdrop[hidden] { display: none; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.mat-modal {
+  width: min(420px, 100%);
+  border: 1px solid var(--line); border-radius: 18px;
+  background: linear-gradient(170deg, rgba(15,21,38,0.96), rgba(8,11,20,0.98));
+  box-shadow: 0 30px 90px rgba(0,0,0,0.6), 0 0 40px rgba(53,224,255,0.08);
+  animation: modalPop .3s var(--ease-snap);
+}
+@keyframes modalPop { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+.mat-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px 0;
+}
+.mat-modal-head h3 {
+  margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.06em;
+  display: flex; align-items: center; gap: 8px; color: var(--ink);
+}
+.mat-modal-head h3 svg { width: 15px; height: 15px; color: var(--laser); }
+.mat-modal-close {
+  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+  color: var(--ink-dim); border: 1px solid transparent; transition: all .25s;
+}
+.mat-modal-close:hover { color: var(--ink); border-color: var(--line); }
+.mat-modal-close svg { width: 14px; height: 14px; }
+.mat-modal-body { padding: 18px 22px 8px; display: flex; flex-direction: column; gap: 14px; }
+.mat-field { display: flex; flex-direction: column; gap: 6px; }
+.mat-field label { font-size: 10px; letter-spacing: 0.16em; color: var(--ink-dim); text-transform: uppercase; }
+.mat-field input {
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: rgba(10,14,26,0.6); color: var(--ink); font-size: 13px; outline: none;
+  transition: border-color .25s, box-shadow .25s;
+}
+.mat-field input:focus { border-color: var(--line-bright); box-shadow: 0 0 14px rgba(53,224,255,0.14); }
+.mat-field input::placeholder { color: var(--ink-faint); }
+.mat-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mat-modal-hint { margin: 0; font-size: 11px; color: var(--ink-faint); line-height: 1.6; }
+.mat-modal-err {
+  padding: 9px 12px; border-radius: 10px; font-size: 12px; line-height: 1.5;
+  border: 1px solid rgba(244,114,208,0.4); color: var(--magenta);
+  background: rgba(244,114,208,0.07);
+}
+.mat-modal-foot {
+  display: flex; align-items: center; gap: 10px; padding: 14px 22px 20px;
+}
+.mat-modal-foot .btn { padding: 10px 18px; font-size: 12px; border-radius: 10px; }
+.mat-modal-foot-space { flex: 1; }
+.mat-del-btn { border-color: rgba(244,114,208,0.3); color: var(--magenta); }
+.mat-del-btn:hover { border-color: var(--magenta); box-shadow: 0 0 20px rgba(244,114,208,0.2); }
+@media (max-width: 520px) { .mat-field-row { grid-template-columns: 1fr; } }
+
+/* ---------- 任务日志 ---------- */
+.log-console {
+  border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+  background: rgba(5,8,15,0.9);
+}
+.log-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em;
+  color: var(--ink-dim); text-transform: uppercase;
+}
+.log-head svg { width: 14px; height: 14px; color: var(--green); }
+.log-body {
+  height: 300px; overflow-y: auto; padding: 18px 20px;
+  font-family: var(--font-mono); font-size: 12px; line-height: 2.1;
+}
+.log-line { display: flex; gap: 14px; opacity: 0; animation: logIn .4s ease forwards; }
+@keyframes logIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+.log-line .t { color: var(--ink-faint); flex-shrink: 0; letter-spacing: 0.08em; }
+.log-line .m { color: var(--ink-dim); word-break: break-all; }
+.log-line.ok .m { color: var(--green); }
+.log-line.warn .m { color: var(--gold); }
+.log-line.err .m { color: var(--danger); }
+.log-line.info .m { color: var(--laser-2); }
+.log-actions { display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--line); }
+.log-actions .btn { padding: 9px 18px; font-size: 11px; border-radius: 10px; }
+
+/* ---------- 参数推荐卡 ---------- */
+.reco-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+.reco-card {
+  border: 1px solid var(--line); border-radius: 16px; padding: 22px;
+  background: linear-gradient(165deg, rgba(15,21,38,0.66), rgba(8,11,20,0.8));
+  position: relative; overflow: hidden;
+  transition: border-color .3s, transform .4s var(--ease-out);
+}
+.reco-card:hover { border-color: rgba(53,224,255,0.3); transform: translateY(-4px); }
+.reco-card .reco-icon {
+  width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+  background: rgba(53,224,255,0.1); border: 1px solid rgba(53,224,255,0.25);
+  color: var(--laser); margin-bottom: 16px;
+}
+.reco-card .reco-icon svg { width: 17px; height: 17px; }
+.reco-card b { font-size: 14px; font-weight: 600; }
+.reco-card .reco-val {
+  margin-top: 8px; font-family: var(--font-mono); font-size: 22px; color: var(--laser-2);
+  letter-spacing: 0.04em;
+}
+.reco-card .reco-val small { font-size: 11px; color: var(--ink-faint); margin-left: 4px; }
+.reco-card .reco-desc { margin-top: 6px; font-size: 11px; color: var(--ink-faint); line-height: 1.8; }
+.reco-card .reco-tag {
+  position: absolute; top: 18px; right: 18px;
+  font-size: 9px; letter-spacing: 0.2em; padding: 4px 9px; border-radius: 999px;
+  border: 1px solid rgba(53,224,255,0.3); color: var(--laser);
+  font-family: var(--font-mono);
+}
+
+/* ---------- 发送遮罩 ---------- */
+.send-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(3,4,8,0.88);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .5s;
+}
+.send-overlay.show { opacity: 1; pointer-events: auto; }
+.send-ring {
+  position: relative; width: 150px; height: 150px; margin-bottom: 34px;
+}
+.send-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.send-ring .track { stroke: rgba(140,165,255,0.14); }
+.send-ring .arc {
+  stroke: url(#ringGrad); stroke-linecap: round;
+  stroke-dasharray: 402.12; stroke-dashoffset: 402.12;
+  transition: stroke-dashoffset .35s var(--ease-out);
+  filter: drop-shadow(0 0 8px rgba(53,224,255,0.8));
+}
+.send-ring .arc.indeterminate {
+  stroke-dasharray: 116 286; stroke-dashoffset: 0;
+  animation: sendRingSpin 1.45s linear infinite;
+}
+@keyframes sendRingSpin { to { transform: rotate(360deg); } }
+.send-ring .core {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 28px; color: var(--laser-2);
+}
+.send-ring .core::before {
+  content: ""; position: absolute; width: 90px; height: 90px; border-radius: 50%;
+  border: 1px solid rgba(53,224,255,0.3);
+  animation: ringPulse 2.2s ease-out infinite;
+}
+@keyframes ringPulse { 0% { transform: scale(0.7); opacity: .9; } 100% { transform: scale(1.5); opacity: 0; } }
+.send-title { font-size: 20px; font-weight: 700; letter-spacing: 0.06em; }
+.send-desc { margin-top: 10px; font-size: 13px; color: var(--ink-faint); font-family: var(--font-mono); letter-spacing: 0.1em; }
+.send-desc .pct { color: var(--laser); }
+.send-stage .st.failed { color: var(--danger); }
+.send-stage {
+  margin-top: 34px; display: flex; gap: 30px; align-items: center;
+}
+.send-stage .st { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.22em; color: var(--ink-faint); text-transform: uppercase; }
+.send-stage .st svg { width: 18px; height: 18px; }
+.send-stage .st.done { color: var(--green); }
+.send-stage .st.active { color: var(--laser); }
+.send-stage .st.active svg { animation: floaty 1.6s ease-in-out infinite; }
+.send-stage .st-line { width: 46px; height: 1px; background: rgba(140,165,255,0.2); position: relative; }
+.send-stage .st-line::after { content: ""; position: absolute; inset: 0; background: var(--laser); transform: scaleX(0); transition: transform .4s var(--ease-out); }
+.send-stage .st-line.done::after { transform: scaleX(1); }
+.send-cancel {
+  margin-top: 44px; padding: 11px 26px; border: 1px solid var(--line);
+  border-radius: 999px; font-size: 11px; letter-spacing: 0.24em; color: var(--ink-dim);
+  text-transform: uppercase; transition: all .3s;
+}
+.send-cancel:hover { border-color: var(--danger); color: var(--danger); }
+
+/* ---------- 页脚 ---------- */
+footer {
+  margin-top: 110px; border-top: 1px solid var(--line);
+  padding: 44px 28px 50px;
+  display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.foot-brand { font-size: 12px; letter-spacing: 0.28em; color: var(--ink-faint); text-transform: uppercase; }
+.foot-brand i { color: var(--laser); font-style: normal; }
+.foot-meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.12em; }
+.foot-meta b { color: var(--ink-dim); font-weight: 500; }
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1020px) {
+  .console-body { grid-template-columns: 1fr; }
+  .console-left { border-right: none; border-bottom: 1px solid var(--line); }
+  .material-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .hero-side-stats, .hero-side-num { display: none; }
+  .preview-body { grid-template-columns: 1fr; }
+  .preview-side { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .preview-side-card { flex: 1; min-width: 140px; }
+}
+@media (max-width: 640px) {
+  .material-grid { grid-template-columns: 1fr; }
+  .reco-grid { grid-template-columns: 1fr; }
+  .topbar-links { display: none; }
+  .param-grid { grid-template-columns: 1fr; }
+  .section { padding: 80px 18px 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="bg-grid"></div>
+<div class="noise"></div>
+<div id="cursor-glow"></div>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#35e0ff"/>
+      <stop offset="100%" stop-color="#f472d0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark"><i data-lucide="zap"></i></div>
+    <div>
+      <div class="brand-name">Laser Forge</div>
+      <div class="brand-sub">MOSS · 光铸实验室</div>
+    </div>
+  </div>
+  <nav class="topbar-links">
+    <a href="#workbench">创作台</a>
+    <a href="#materials">材料库</a>
+    <a href="#params">参数推荐</a>
+    <a href="#log">任务日志</a>
+  </nav>
+  <div class="conn-pill offline" id="conn-pill">
+    <span class="led"></span>
+    <span id="conn-text">设备离线</span>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="hero-eyebrow">Laser-Cut Creative Console · LASER FORGE</div>
+  <h1 class="hero-title" aria-label="LASER FORGE">
+    <span class="row">
+      <span class="outline" data-char="LASER">LASER</span>
+    </span>
+    <span class="row">
+      <span class="solid" data-char="FORGE">FORGE</span>
+    </span>
+  </h1>
+  <div class="hero-cn">光 铸 <b>·</b> 激 光 创 作 工 作 台</div>
+  <p class="hero-desc">
+    将一行文字化为光的轨迹。输入灵感，调校参数，<code>G-CODE</code> 在毫秒间成形，
+    光束落下的地方，就是作品诞生之处。已接入真实后端 API，发送链路后续版本开放。
+  </p>
+  <div class="hero-cta">
+    <button class="btn btn-primary" id="cta-start"><i data-lucide="zap"></i>开始创作</button>
+    <button class="btn btn-ghost" id="cta-sim"><i data-lucide="activity"></i>测试设备连接</button>
+  </div>
+  <div class="hero-side-stats">
+    <div class="stat"><b id="stat-lines">0</b><span>G-code 行</span></div>
+    <div class="stat"><b id="stat-time">00:00</b><span>预估工时</span></div>
+    <div class="stat"><b id="stat-jobs">0</b><span>任务完成</span></div>
+  </div>
+  <div class="hero-side-num"><i>●</i>&nbsp;FORGE&nbsp;·&nbsp;EST&nbsp;2026&nbsp;<i>●</i></div>
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="wheel"></div>
+  </div>
+</section>
+
+<main>
+  <!-- 创作台 -->
+  <section class="section" id="workbench">
+    <div class="section-head reveal">
+      <div class="sec-tag">01 · Console</div>
+      <h2 class="sec-title">创作<span class="accent">工作台</span></h2>
+      <p class="sec-sub">输入文字与材料参数，实时生成雕刻轨迹。光标悬停在面板上可体验 3D 倾斜反馈。</p>
+    </div>
+
+    <div class="console-wrap reveal" id="console-wrap">
+      <div class="console" id="console">
+        <div class="laser-edge"></div>
+        <div class="console-head">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <div class="console-title"><i>&gt;</i> WORKBENCH // 创作会话 001</div>
+          <div class="right">
+            <div class="conn-pill offline" id="console-conn" style="padding:5px 11px;font-size:10px">
+              <span class="led"></span><span id="console-conn-text">未连接</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="connection-bar" id="connection-bar">
+          <div class="connection-choice">
+            <span class="connection-label">连接方式</span>
+            <select class="connection-select" id="connection-mode-select" title="自动模式按 .env 中的 LASER_DEFAULT_CONNECTION_MODE 排序">
+              <option value="auto">自动 · 按 .env 优先级</option>
+              <option value="network">网络 · Telnet</option>
+              <option value="serial">串口 · GRBL</option>
+            </select>
+          </div>
+          <div class="connection-serial-fields" id="connection-serial-fields" hidden>
+            <div class="connection-field">
+              <label for="serial-port-select">端口</label>
+              <select id="serial-port-select" title="可用串口"></select>
+            </div>
+            <button class="connection-refresh" id="serial-refresh-btn" type="button" title="刷新串口列表">
+              <i data-lucide="refresh-cw"></i>刷新串口
+            </button>
+            <div class="connection-field">
+              <label for="serial-baudrate-input">波特率</label>
+              <input id="serial-baudrate-input" type="number" min="1" step="1" value="115200">
+            </div>
+          </div>
+          <div class="connection-network-fields" id="connection-network-fields">
+            <div class="connection-field">
+              <label for="host-input">Host</label>
+              <input class="connection-input" type="text" id="host-input" placeholder="设备 IP / host" title="激光设备网络地址（如 192.168.1.50）">
+            </div>
+            <div class="connection-field">
+              <label for="network-telnet-port-input">Telnet</label>
+              <input id="network-telnet-port-input" type="number" min="1" max="65535" value="23">
+            </div>
+          </div>
+          <div class="connection-note" id="connection-priority-note">读取运行配置中…</div>
+        </div>
+
+        <div class="console-body">
+          <div class="console-left">
+            <div class="field-label"><span>雕刻内容</span><span class="hint" id="char-counter">0 / 24 字符</span></div>
+            <div class="text-input-wrap">
+              <textarea class="text-input" id="text-input" maxlength="24" placeholder="输入要雕刻的文字，例如：&#10;MOSS 光铸 / 2026"></textarea>
+              <div class="input-beam"></div>
+              <div class="char-count">计 <span class="num" id="char-num">0</span></div>
+            </div>
+
+            <div class="source-panel" id="source-panel" hidden>
+              <div class="source-drop" id="image-drop">
+                <i data-lucide="cloud-upload"></i>
+                <div class="sd-title">拖拽图片到此处，或点击选择</div>
+                <div class="sd-sub">PNG / JPG / WEBP · 自动换算灰度</div>
+                <div class="file-name" id="image-file-name" hidden></div>
+              </div>
+              <div class="source-drop gcode" id="gcode-drop">
+                <i data-lucide="file-code-2"></i>
+                <div class="sd-title">拖拽 G-code 文件到此处，或点击选择</div>
+                <div class="sd-sub">.gcode / .nc · 直接执行</div>
+                <div class="file-name" id="gcode-file-name" hidden></div>
+              </div>
+              <div class="draw-pad" id="draw-pad">
+                <div class="draw-controls" id="draw-controls">
+                  <div class="dc-group">
+                    <span class="dc-label">材料</span>
+                    <select id="draw-material"></select>
+                  </div>
+                  <div class="dc-group">
+                    <span class="dc-label">厚度</span>
+                    <input type="number" id="draw-thickness" min="0" step="0.1" value="3">
+                  </div>
+                  <div class="dc-group">
+                    <span class="dc-label">宽</span>
+                    <input type="number" id="draw-width" min="0" max="120" step="0.1" placeholder="自动">
+                  </div>
+                  <div class="dc-group">
+                    <span class="dc-label">高</span>
+                    <input type="number" id="draw-height" min="0" max="120" step="0.1" placeholder="自动">
+                  </div>
+                  <div class="dc-group">
+                    <span class="dc-label">策略</span>
+                    <select id="draw-mode">
+                      <option value="raster">光栅 raster</option>
+                      <option value="outline">轮廓 outline</option>
+                      <option value="auto">自动 auto</option>
+                    </select>
+                  </div>
+                  <div class="dc-group">
+                    <span class="dc-label">设备 host</span>
+                    <input type="text" id="draw-host" placeholder="例如 laser.local">
+                  </div>
+                  <button class="dc-btn" id="draw-export-png" title="导出当前画板为 PNG"><i data-lucide="download"></i>PNG</button>
+                  <button class="dc-btn" id="draw-export-scene" title="导出画板场景 JSON"><i data-lucide="file-json"></i>场景</button>
+                </div>
+                <div id="draw-excalidraw"></div>
+                <div class="draw-hint">使用 Excalidraw 完整画板 · 拖拽下方手柄可调整画板高度</div>
+                <div class="draw-resize" id="draw-resize" title="拖拽调整画板高度">
+                  <i data-lucide="grip-horizontal"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="tool-row" id="tool-row">
+              <button class="tool-chip" data-tool="text"><i data-lucide="type"></i>文字</button>
+              <button class="tool-chip" data-tool="image"><i data-lucide="image"></i>图片</button>
+              <button class="tool-chip" data-tool="gcode"><i data-lucide="file-code-2"></i>G-code</button>
+              <button class="tool-chip active" data-tool="preset"><i data-lucide="wand-2"></i>预设</button>
+              <button class="tool-chip" data-tool="draw"><i data-lucide="pen-tool"></i>画板</button>
+            </div>
+            <input type="file" id="file-input" accept="image/*" hidden>
+            <input type="file" id="gcode-input" accept=".gcode,.nc" hidden>
+
+            <div class="field-label" style="margin-top:20px"><span>材料与参数</span><span class="hint">mm</span></div>
+            <div class="param-grid">
+              <div class="select-wrap">
+                <select id="material-select"></select>
+                <i data-lucide="chevrons-up-down"></i>
+              </div>
+              <div class="select-wrap">
+                <select id="mode-select">
+                  <option value="engrave">雕刻 · 填充</option>
+                  <option value="line">线条 · 描边</option>
+                  <option value="cut">切割 · 穿透</option>
+                </select>
+                <i data-lucide="chevrons-up-down"></i>
+              </div>
+            </div>
+
+            <div class="param-block" style="margin-top:22px">
+              <div class="field-label"><span>功率</span><span class="hint">POWER</span></div>
+              <div class="param-slider-row">
+                <input type="range" id="power" min="10" max="100" value="72">
+                <div class="val" id="power-val">72<span class="unit">%</span></div>
+              </div>
+            </div>
+            <div class="param-block">
+              <div class="field-label"><span>速度</span><span class="hint">SPEED</span></div>
+              <div class="param-slider-row">
+                <input type="range" id="speed" min="10" max="200" value="120">
+                <div class="val" id="speed-val">120<span class="unit">mm/s</span></div>
+              </div>
+            </div>
+            <div class="param-block">
+              <div class="field-label"><span>厚度</span><span class="hint">THICKNESS</span></div>
+              <div class="param-slider-row">
+                <input type="range" id="thickness" min="1" max="20" value="3" step="0.1">
+                <div class="val" id="thickness-val">3.0<span class="unit">mm</span></div>
+              </div>
+            </div>
+
+            <div class="gen-row">
+              <button class="btn btn-scan" id="btn-gen"><i data-lucide="scan-line"></i>生成 G-code</button>
+              <button class="btn btn-ghost" id="btn-send" disabled title="生成预览后，确认参数与设备地址再发送"><i data-lucide="send"></i>发送雕刻</button>
+            </div>
+
+            <div class="console-ops">
+              <div class="ops-title"><span class="op-dot"></span>任务操作</div>
+              <div class="ops-grid">
+                <button class="op-btn" id="op-test-conn" title="测试设备连接"><i data-lucide="plug-zap"></i><span>测试连接</span></button>
+                <button class="op-btn" id="op-save-cfg" title="保存当前配置到本地"><i data-lucide="save"></i><span>保存配置</span></button>
+                <button class="op-btn" id="op-status" title="查询当前任务状态"><i data-lucide="activity"></i><span>查状态</span></button>
+                <button class="op-btn" id="op-cancel" title="取消当前任务"><i data-lucide="ban"></i><span>取消</span></button>
+                <button class="op-btn" id="op-regen" title="按相同输入重新生成"><i data-lucide="refresh-cw"></i><span>重生成</span></button>
+              </div>
+              <div class="feedback-row">
+                <textarea id="feedback-text" rows="2" placeholder="效果反馈（可选）：例如太焦、太浅、切不透、毛边"></textarea>
+                <button class="btn btn-ghost btn-sm" id="btn-feedback">记反馈</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 雕刻预览（独立区块，位于工作台底部） -->
+        <div class="preview-panel">
+          <div class="field-label"><span>雕刻预览</span><span class="hint" id="preview-label">等待输入</span></div>
+          <div class="preview-nav">
+            <button class="preview-nav-btn active" id="pv-nav-img">素材图</button>
+            <button class="preview-nav-btn" id="pv-nav-gcode">G-code 路径</button>
+            <span class="preview-nav-links" id="pv-nav-links"></span>
+          </div>
+          <div class="preview-body">
+            <div class="preview-stage">
+              <div class="crosshair"></div>
+              <canvas id="preview-canvas"></canvas>
+              <div class="scanline" id="scanline"></div>
+              <div class="preview-empty" id="preview-empty">
+                <i data-lucide="focus"></i>
+                <div class="ph">输入文字 · 点击生成</div>
+                <div style="font-size:10px;opacity:.6">PREVIEW // 512 × 512 mm</div>
+              </div>
+            </div>
+            <div class="preview-side">
+              <div class="preview-side-card">
+                <div class="psc-label">设备型号</div>
+                <div class="psc-value" id="meta-model">LASER-MOS-550W</div>
+              </div>
+              <div class="preview-side-card">
+                <div class="psc-label">预估工时</div>
+                <div class="psc-value eta" id="meta-eta">ETA —</div>
+              </div>
+              <div class="preview-side-card" id="preview-warn-card" hidden>
+                <div class="psc-label">参数提示</div>
+                <div class="psc-value warn-text" id="preview-warnings">—</div>
+              </div>
+              <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+              <div class="preview-side-note">预览图 · 由后端生成</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 材料库 -->
+  <section class="section" id="materials">
+    <div class="section-head reveal">
+      <div class="sec-tag">02 · Material Library</div>
+      <h2 class="sec-title">材料<span class="accent">参数库</span></h2>
+      <p class="sec-sub">内置材质库的推荐参数。选择材料后，工作台功率 / 速度 / 厚度将自动套用。</p>
+      <div class="mat-head-actions">
+        <button class="btn btn-ghost" id="mat-add-btn"><i data-lucide="plus"></i>添加材料</button>
+        <button class="btn btn-ghost" id="mat-refresh-btn" title="从后端重新加载材料库"><i data-lucide="refresh-cw"></i>刷新</button>
+      </div>
+    </div>
+    <div class="material-grid" id="material-grid"></div>
+  </section>
+
+  <!-- 参数推荐 -->
+  <section class="section" id="params">
+    <div class="section-head reveal">
+      <div class="sec-tag">03 · Recommendation</div>
+      <h2 class="sec-title">参数<span class="accent">推荐引擎</span></h2>
+      <p class="sec-sub">基于当前材料与模式，实时推算安全、高效的激光参数组合。</p>
+    </div>
+    <div class="reco-grid" id="reco-grid"></div>
+  </section>
+
+  <!-- 任务日志 -->
+  <section class="section" id="log">
+    <div class="section-head reveal">
+      <div class="sec-tag">04 · Task Log</div>
+      <h2 class="sec-title">任务<span class="accent">日志</span></h2>
+      <p class="sec-sub">设备回传的实时事件流。操作、API 结果与后端状态在此记录。</p>
+    </div>
+    <div class="log-console reveal">
+      <div class="log-head"><i data-lucide="terminal"></i>MOSS · 事件流</div>
+      <div class="log-body" id="log-body"></div>
+      <div class="log-actions">
+        <button class="btn btn-ghost" id="btn-clear-log"><i data-lucide="eraser"></i>清空</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot-brand">光铸 · <i>LASER FORGE</i> — 激光创作工作台</div>
+  <div class="foot-meta">已接入真实后端 · 生成 / 预览 / 发送 / 材料推荐 · <b>EST 2026</b></div>
+</footer>
+
+<div class="send-overlay" id="send-overlay">
+  <div class="send-ring">
+    <svg viewBox="0 0 150 150">
+      <circle class="track" cx="75" cy="75" r="64" fill="none" stroke-width="3"/>
+      <circle class="arc" id="send-arc" cx="75" cy="75" r="64" fill="none" stroke-width="3"/>
+    </svg>
+    <div class="core" id="send-core">0%</div>
+  </div>
+  <div class="send-title" id="send-title">正在读取发送状态</div>
+  <div class="send-desc">STATUS <span class="pct" id="send-pct">待处理</span> · 请勿关闭页面</div>
+  <div class="send-stage">
+    <div class="st" id="st-0"><i data-lucide="check"></i><span>校验</span></div>
+    <div class="st-line" id="stl-0"></div>
+    <div class="st" id="st-1"><i data-lucide="cpu"></i><span>生成</span></div>
+    <div class="st-line" id="stl-1"></div>
+    <div class="st" id="st-2"><i data-lucide="upload-cloud"></i><span>传输</span></div>
+    <div class="st-line" id="stl-2"></div>
+    <div class="st" id="st-3"><i data-lucide="flame"></i><span>执行</span></div>
+  </div>
+  <button class="send-cancel" id="send-cancel">取消任务</button>
+</div>
+
+<!-- 材料管理弹窗（页内编辑，无需跳转） -->
+<div class="mat-modal-backdrop" id="mat-modal" hidden>
+  <div class="mat-modal" role="dialog" aria-modal="true" aria-labelledby="mat-modal-title">
+    <div class="mat-modal-head">
+      <h3 id="mat-modal-title"><i data-lucide="layers"></i><span id="mat-modal-title-text">添加材料</span></h3>
+      <button class="mat-modal-close" id="mat-modal-close" title="关闭"><i data-lucide="x"></i></button>
+    </div>
+    <div class="mat-modal-body">
+      <div class="mat-field">
+        <label for="mat-f-name">材料名称</label>
+        <input id="mat-f-name" type="text" placeholder="例如：椴木 / 亚克力" autocomplete="off">
+      </div>
+      <div class="mat-field">
+        <label for="mat-f-thick">厚度（mm）</label>
+        <input id="mat-f-thick" type="text" placeholder="例如：3, 5（多个厚度用逗号隔开）" autocomplete="off">
+      </div>
+      <div class="mat-field-row">
+        <div class="mat-field">
+          <label for="mat-f-power">功率（%）</label>
+          <input id="mat-f-power" type="number" min="1" max="100" step="1" placeholder="10 - 100">
+        </div>
+        <div class="mat-field">
+          <label for="mat-f-speed">速度（mm/s）</label>
+          <input id="mat-f-speed" type="number" min="1" max="600" step="1" placeholder="10 - 200">
+        </div>
+      </div>
+      <p class="mat-modal-hint">保存后将写入后端材料库，仅用于雕刻参数推荐（raster 模式）。切割参数请保留默认。</p>
+      <div class="mat-modal-err" id="mat-modal-err" hidden></div>
+    </div>
+    <div class="mat-modal-foot">
+      <button class="btn btn-ghost mat-del-btn" id="mat-f-delete" hidden><i data-lucide="trash-2"></i>删除材料</button>
+      <span class="mat-modal-foot-space"></span>
+      <button class="btn btn-ghost" id="mat-f-cancel">取消</button>
+      <button class="btn btn-primary" id="mat-f-save"><i data-lucide="save"></i><span id="mat-f-save-text">保存</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   光铸 · LASER FORGE — 交互脚本（上传 / 生成 / 预览 / 连接 / 状态接入真实 API）
+   ============================================================ */
+(function () {
+  "use strict";
+
+  /* ---------- Lucide 图标 ---------- */
+  const applyIcons = () => {
+    if (window.lucide) { try { window.lucide.createIcons(); } catch (e) {} }
+    else { document.querySelectorAll("[data-lucide]").forEach(el => el.hidden = true); }
+  };
+  applyIcons();
+  window.addEventListener("load", applyIcons);
+
+  /* ---------- 工具函数 ---------- */
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const escHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const nowStamp = () => {
+    const d = new Date();
+    return pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+  };
+
+  /* ---------- 背景粒子系统 ---------- */
+  const bgCanvas = $("#bg-canvas");
+  const bgCtx = bgCanvas.getContext("2d");
+  let particles = [];
+  let mouse = { x: -9999, y: -9999 };
+  let W = 0, H = 0;
+
+  function resizeBg() {
+    W = bgCanvas.width = window.innerWidth;
+    H = bgCanvas.height = window.innerHeight;
+    const count = Math.min(110, Math.floor(W * H / 16000));
+    particles = Array.from({ length: count }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      z: Math.random() * 0.7 + 0.3,
+      r: Math.random() * 1.4 + 0.3,
+      vx: (Math.random() - 0.5) * 0.16,
+      vy: (Math.random() - 0.5) * 0.16,
+      hue: Math.random() > 0.5 ? 192 : 315,
+      tw: Math.random() * Math.PI * 2,
+    }));
+  }
+  resizeBg();
+  window.addEventListener("resize", resizeBg);
+
+  window.addEventListener("pointermove", (e) => {
+    mouse.x = e.clientX; mouse.y = e.clientY;
+    const g = $("#cursor-glow");
+    g.style.transform = `translate(${e.clientX - 260}px, ${e.clientY - 260}px)`;
+  });
+
+  function drawBg(t) {
+    bgCtx.clearRect(0, 0, W, H);
+    for (const p of particles) {
+      p.x += p.vx * p.z;
+      p.y += p.vy * p.z;
+      if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10;
+      if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10;
+      const dx = p.x - mouse.x, dy = p.y - mouse.y;
+      const d2 = dx * dx + dy * dy;
+      let alpha = 0.16 + 0.24 * Math.sin(t / 900 + p.tw);
+      if (d2 < 26000) alpha += (1 - d2 / 26000) * 0.55;
+      const col = p.hue === 192 ? `rgba(53,224,255,${alpha})` : `rgba(244,114,208,${alpha})`;
+      bgCtx.beginPath();
+      bgCtx.arc(p.x, p.y, p.r * p.z, 0, Math.PI * 2);
+      bgCtx.fillStyle = col;
+      bgCtx.fill();
+      if (d2 < 26000) {
+        const dist = Math.sqrt(d2);
+        bgCtx.beginPath();
+        bgCtx.moveTo(p.x, p.y);
+        bgCtx.lineTo(mouse.x + (p.x - mouse.x) / dist * 22, mouse.y + (p.y - mouse.y) / dist * 22);
+        bgCtx.strokeStyle = `rgba(53,224,255,${(1 - d2 / 26000) * 0.22})`;
+        bgCtx.lineWidth = 0.7;
+        bgCtx.stroke();
+      }
+    }
+    requestAnimationFrame(drawBg);
+  }
+  requestAnimationFrame(drawBg);
+
+  /* ---------- 滚动显现 ---------- */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
+  }, { threshold: 0.12 });
+  $$(".reveal").forEach(el => io.observe(el));
+
+  /* ---------- Hero 标题拆字动画 ---------- */
+  $$(".hero-title [data-char]").forEach(el => {
+    const txt = el.textContent;
+    el.innerHTML = "";
+    [...txt].forEach((c, i) => {
+      const s = document.createElement("span");
+      s.className = "char";
+      s.style.animationDelay = `${0.25 + i * 0.055}s`;
+      s.textContent = c;
+      el.appendChild(s);
+    });
+  });
+
+  /* ---------- 控制台 3D 倾斜 ---------- */
+  const consoleEl = $("#console");
+  const wrap = $("#console-wrap");
+  wrap.addEventListener("pointermove", (e) => {
+    const r = wrap.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    consoleEl.style.transform =
+      `rotateX(${(-py * 3.4).toFixed(2)}deg) rotateY(${(px * 3.4).toFixed(2)}deg) translateZ(0)`;
+  });
+  wrap.addEventListener("pointerleave", () => {
+    consoleEl.style.transform = "rotateX(0deg) rotateY(0deg)";
+  });
+
+  /* ---------- 滑块填充 ---------- */
+  const paintSlider = (slider) => {
+    const min = +slider.min, max = +slider.max;
+    const pct = ((+slider.value - min) / (max - min)) * 100;
+    slider.style.setProperty("--fill", pct + "%");
+  };
+  $$('input[type="range"]').forEach(slider => {
+    paintSlider(slider);
+    slider.addEventListener("input", () => paintSlider(slider));
+  });
+
+  /* ---------- 状态数据 ---------- */
+  const state = {
+    text: "",
+    tool: "preset",
+    material: "",   // 材料名（来自后端材料库）；空字符串 = 自定义模式
+    mode: "engrave",
+    power: 72, speed: 120, thickness: 3,
+    connected: false,
+    connectionPreference: "auto", // auto follows the server-provided .env priority
+    preferredMode: "network",
+    preferredModes: ["network", "serial"],
+    activeConnectionMode: "",
+    connectionFallbackUsed: false,
+    connectionConfigLoaded: false,
+    serialPorts: [],
+    serialPort: "",
+    baudrate: 115200,
+    networkTelnetPort: 23,
+    networkHttpPort: 80,
+    networkTimeout: 5,
+    lastConnectionMode: localStorage.getItem("laser-forge-connection-mode") || "",
+    lines: 0, jobs: 0,
+    generating: false,
+    sending: false,
+    totalSeconds: 0,
+    workflowId: "",
+    jobId: "",
+    statusPolling: false,
+    statusTimer: null,
+    statusPollFailures: 0,
+    lastStatus: "",
+    jobCounted: false,
+    workflowResult: null,  // 最近一次完整 workflow 结果
+    lastRecordedFeedback: "",
+    host: localStorage.getItem("laser-forge-host") || "",
+    imageFile: null,   // { name, dataUrl }
+    gcodeFile: null,   // { name, lines, dataUrl }
+    hasDrawing: false,
+  };
+
+  /* ---------- 材料库动态状态（来自 GET /api/ui/material-options） ---------- */
+  const materialsState = {
+    options: [],        // [{name, thicknesses:[number,...]}] 后端材料库
+    loaded: false,      // 首次成功加载标记
+    failed: false,      // 最近一次首次加载是否失败（仅用于空态提示文案）
+    generation: 0,      // options 请求代际：旧响应晚到必须丢弃
+    recGeneration: 0,   // recommendation 请求代际：旧响应晚到必须丢弃
+  };
+  let restoredConfigOnce = false;
+  let recoTimer = null;
+
+  function selectedMaterial() {
+    const name = state.material;
+    if (typeof name !== "string" || !name) return "";
+    return materialsState.options.some(o => o.name === name) ? name : "";
+  }
+  function findOption(name) {
+    return materialsState.options.find(o => o.name === name) || null;
+  }
+  function firstThicknessOf(name) {
+    const opt = findOption(name);
+    if (opt && opt.thicknesses.length) return opt.thicknesses[0];
+    return 3;
+  }
+  // state.mode → 推荐 API 参数（engrave→raster，line→outline，cut→不传 engraving_mode）
+  function modeApi() {
+    if (state.mode === "cut") return { laser_mode: "cut", engraving_mode: "" };
+    return { laser_mode: "engrave", engraving_mode: state.mode === "line" ? "outline" : "raster" };
+  }
+
+  /* ---------- 材料卡色板（按名称 hash 取固定色，保留暗色宇宙风） ---------- */
+  const MAT_PALETTE = ["#c98d4b", "#3fc8ff", "#a5664a", "#e6d9b8", "#9aa4b5", "#5c6572", "#6b4a2f", "#2f343d"];
+  function matColorFor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return MAT_PALETTE[h % MAT_PALETTE.length];
+  }
+
+  /* ---------- 滑块套用 ---------- */
+  function applySliderValues(power, speed, thickness) {
+    const powerEl = $("#power"), speedEl = $("#speed"), thickEl = $("#thickness");
+    powerEl.value = power; state.power = power;
+    $("#power-val").innerHTML = power + '<span class="unit">%</span>'; paintSlider(powerEl);
+    speedEl.value = speed; state.speed = speed;
+    $("#speed-val").innerHTML = speed + '<span class="unit">mm/s</span>'; paintSlider(speedEl);
+    thickEl.value = thickness; state.thickness = thickness;
+    $("#thickness-val").innerHTML = Number(thickness).toFixed(1) + '<span class="unit">mm</span>'; paintSlider(thickEl);
+  }
+  function syncThicknessSlider() {
+    const el = $("#thickness");
+    el.value = state.thickness;
+    $("#thickness-val").innerHTML = Number(state.thickness).toFixed(1) + '<span class="unit">mm</span>';
+    paintSlider(el);
+  }
+
+  /* ---------- 参数推荐套用（材料+厚度+模式 → GET /api/ui/material-recommendation） ---------- */
+  async function applyRecommendation() {
+    const name = selectedMaterial();
+    if (!name) return;   // 自定义模式：不动滑块
+    const mode = modeApi();
+    const qs = new URLSearchParams({
+      material: name,
+      thickness_mm: String(state.thickness),
+      laser_mode: mode.laser_mode,
+    });
+    if (mode.engraving_mode) qs.set("engraving_mode", mode.engraving_mode);
+    const gen = ++materialsState.recGeneration;
+    try {
+      const result = await apiGet("/api/ui/material-recommendation?" + qs.toString(), 15000);
+      if (gen !== materialsState.recGeneration) return;   // 旧响应丢弃
+      const power = Number(result && result.laser_max_power);
+      const speed = Number(result && result.feed_rate);
+      const thickness = Number(result && result.matched_thickness_mm);
+      if (![power, speed, thickness].every(Number.isFinite)) {
+        throw new Error("推荐参数缺失");
+      }
+      applySliderValues(
+        clamp(Math.round(power / 10), 10, 100),
+        clamp(Math.round(speed / 60), 10, 200),
+        clamp(thickness, 1, 20)
+      );
+      updateRecommendation();
+      const requested = Number(qs.get("thickness_mm"));
+      if (result.match === "nearest_thickness" && Math.abs(thickness - requested) > 0.001) {
+        addLog("参数推荐", `${name} 已按最近厚度 ${Number(thickness)}mm 匹配 · passes ${result.passes ?? 1}`, "info");
+      }
+    } catch (err) {
+      if (gen !== materialsState.recGeneration) return;   // 旧请求失败不提示
+      // 400 / 网络失败：滑块保持用户当前值，不阻断任何操作
+      addLog("参数推荐", "该模式暂无推荐参数，滑块保持手动值", "warn");
+    }
+  }
+  function scheduleRecommendation() {
+    if (recoTimer) clearTimeout(recoTimer);
+    recoTimer = setTimeout(() => {
+      recoTimer = null;
+      applyRecommendation();
+    }, 350);
+  }
+
+  /* ---------- 材料库加载 / 刷新（GET /api/ui/material-options + 降级规则） ---------- */
+  async function loadMaterialOptions() {
+    const gen = ++materialsState.generation;
+    try {
+      const result = await apiGet("/api/ui/material-options", 15000);
+      if (gen !== materialsState.generation) return;   // 旧响应晚到必须丢弃
+      const raw = (result && Array.isArray(result.materials)) ? result.materials : [];
+      const options = raw
+        .filter(m => m && typeof m.name === "string" && m.name.trim() && Array.isArray(m.thicknesses))
+        .map(m => ({
+          name: m.name,
+          thicknesses: Array.from(new Set(
+            m.thicknesses.map(t => Number(t)).filter(t => Number.isFinite(t) && t > 0)
+          )).sort((a, b) => a - b),
+        }))
+        .filter(m => m.thicknesses.length);
+      const firstSuccess = !materialsState.loaded;
+      const prevMaterial = state.material;
+      materialsState.options = options;
+      materialsState.loaded = true;
+      materialsState.failed = false;
+      const stillValid = typeof prevMaterial === "string" && !!prevMaterial &&
+        options.some(o => o.name === prevMaterial);
+      if (!stillValid) {
+        if (options.length) {
+          state.material = options[0].name;        // fallback：第一个可用材料
+          state.thickness = options[0].thicknesses[0];   // 及其第一厚度
+        } else {
+          state.material = "";                     // 空库 → 自定义模式
+        }
+        if (prevMaterial) {
+          addLog("材料已移除", `「${prevMaterial}」不在最新材料库中 · 已切换为 ${selectedMaterial() || "自定义模式"}`, "warn");
+        }
+      }
+      if (firstSuccess) restoreSavedConfig();
+      renderMaterialCards();
+      fillMatSelect();
+      fillDrawMaterialSelect();
+      syncThicknessSlider();
+      updateRecommendation();
+      if (selectedMaterial()) applyRecommendation();
+      if (firstSuccess) {
+        addLog("材料库已加载", `材料库 ${materialsState.options.length} 项 · 动态加载 · 后端材料库已同步`, "ok");
+      }
+    } catch (err) {
+      if (gen !== materialsState.generation) return;
+      if (materialsState.loaded) {
+        // 已有数据后刷新失败：保留旧列表与选中，log 提示，不破坏界面
+        addLog("材料库刷新失败", "保留当前材料列表与选中 · " + String(err.message || err), "warn");
+      } else {
+        // 首次加载失败：页面可用（自定义模式），下拉为空 + log 提示，滑块保持手动可用
+        materialsState.failed = true;
+        renderMaterialCards();
+        updateRecommendation();
+        addLog("材料库加载失败", "已进入自定义模式 · 滑块可手动调整 · 生成请求仍可提交 · " + String(err.message || err), "warn");
+      }
+    }
+  }
+
+  /* ---------- 本地配置恢复（材料名 + 厚度 + 模式；旧 key 不匹配即忽略） ---------- */
+  function restoreSavedConfig() {
+    if (restoredConfigOnce) return;
+    restoredConfigOnce = true;
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem("laser-forge-cfg") || "null");
+    } catch (e) { saved = null; }
+    if (!saved || typeof saved !== "object") return;
+    if (saved.host && !state.host) {
+      state.host = saved.host;
+      $("#host-input").value = saved.host;
+    }
+    const name = typeof saved.material === "string" ? saved.material : "";
+    const hasOpt = !!name && materialsState.options.some(o => o.name === name);
+    if (hasOpt) {
+      state.material = name;
+      const t = Number(saved.thickness);
+      state.thickness = (Number.isFinite(t) && t >= 1 && t <= 20) ? clamp(t, 1, 20) : firstThicknessOf(name);
+      if (["engrave", "line", "cut"].includes(saved.mode)) {
+        state.mode = saved.mode;
+        $("#mode-select").value = saved.mode;
+      }
+      syncThicknessSlider();
+      addLog("已恢复上次配置", `材料 ${name} · 厚度 ${Number(state.thickness)}mm · 模式 ${state.mode}`, "ok");
+    } else if (name) {
+      // 旧 key（wood-3 等）不在新材料库中 → 忽略，走默认材料；不做迁移映射
+      addLog("已恢复上次配置", `旧材料记录「${name}」不在当前材料库中 · 已使用默认材料`, "warn");
+    }
+  }
+
+  /* ---------- 连接控制 ---------- */
+  function setConnected(on, detail) {
+    state.connected = on;
+    ["#conn-pill", "#console-conn"].forEach(sel => {
+      const el = $(sel);
+      el.classList.remove("online", "offline");
+      el.classList.add(on ? "online" : "offline");
+    });
+    const suffix = on && state.activeConnectionMode ? ` · ${modeLabel(state.activeConnectionMode)}` : "";
+    $("#conn-text").textContent = on ? `设备在线${suffix}` : "设备离线";
+    $("#console-conn-text").textContent = on ? `在线${suffix}` : "未连接";
+    if (on) {
+      addLog("连接检查通过", detail || "后端可达 · 设备响应正常", "ok");
+    }
+  }
+
+  /* ---------- 后端 API ---------- */
+  async function apiCall(path, payload, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs || 20000);
+    let resp;
+    try {
+      resp = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {}),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error("请求超时 · 后端未响应");
+      }
+      throw new Error("无法连接后端 · 请确认激光 Web 服务已启动");
+    } finally {
+      clearTimeout(timer);
+    }
+    let data;
+    try {
+      data = await resp.json();
+    } catch (err) {
+      throw new Error(`后端响应异常（HTTP ${resp.status}）`);
+    }
+    if (!resp.ok || !data || data.success !== true) {
+      const msg = (data && (data.result || data.error)) || `请求失败（HTTP ${resp.status}）`;
+      throw new Error(typeof msg === "string" ? msg : "请求失败");
+    }
+    return data.result;
+  }
+
+  // GET 辅助（材料库只读接口）：与 apiCall 同样带超时与错误处理，成功返回 data.result
+  async function apiGet(path, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs || 20000);
+    let resp;
+    try {
+      resp = await fetch(path, {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        throw new Error("请求超时 · 后端未响应");
+      }
+      throw new Error("无法连接后端 · 请确认激光 Web 服务已启动");
+    } finally {
+      clearTimeout(timer);
+    }
+    let data;
+    try {
+      data = await resp.json();
+    } catch (err) {
+      throw new Error(`后端响应异常（HTTP ${resp.status}）`);
+    }
+    if (!resp.ok || !data || data.success !== true) {
+      const msg = (data && (data.result || data.error)) || `请求失败（HTTP ${resp.status}）`;
+      throw new Error(typeof msg === "string" ? msg : "请求失败");
+    }
+    return data.result;
+  }
+
+  /* ---------- 运行配置 / 双连接状态 ---------- */
+  const modeLabel = (mode) => ({ serial: "串口", network: "网络" }[mode] || mode || "未选择");
+  const connectionEls = () => ({
+    mode: $("#connection-mode-select"),
+    serialFields: $("#connection-serial-fields"),
+    networkFields: $("#connection-network-fields"),
+    ports: $("#serial-port-select"),
+    baudrate: $("#serial-baudrate-input"),
+    host: $("#host-input"),
+    telnetPort: $("#network-telnet-port-input"),
+    note: $("#connection-priority-note"),
+  });
+  function setConnectionNote(text, type) {
+    const el = connectionEls().note;
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.remove("warn", "ok");
+    if (type) el.classList.add(type);
+  }
+  function updateConnectionFields() {
+    const els = connectionEls();
+    if (!els.mode) return;
+    const selected = els.mode.value || "auto";
+    // Auto mode keeps both forms visible because either may be used during preflight.
+    els.serialFields.hidden = selected === "network";
+    els.networkFields.hidden = selected === "serial";
+  }
+  function fillSerialPorts(preferredPort) {
+    const sel = connectionEls().ports;
+    if (!sel) return;
+    const preferred = String(preferredPort || state.serialPort || "").trim();
+    sel.innerHTML = "";
+    if (!state.serialPorts.length) {
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "未发现可用串口";
+      sel.appendChild(empty);
+      sel.value = "";
+      state.serialPort = "";
+      return;
+    }
+    state.serialPorts.forEach(item => {
+      const opt = document.createElement("option");
+      opt.value = String(item.port || "");
+      opt.textContent = item.desc ? `${item.port} · ${item.desc}` : String(item.port || "");
+      sel.appendChild(opt);
+    });
+    if (preferred && state.serialPorts.some(item => String(item.port || "") === preferred)) {
+      sel.value = preferred;
+      state.serialPort = preferred;
+      return;
+    }
+    // Do not silently choose a different port when the configured default disappeared.
+    sel.value = "";
+    state.serialPort = "";
+    if (preferred) {
+      setConnectionNote(`默认串口 ${preferred} 当前不可用，请重新选择`, "warn");
+    }
+  }
+  function applyRuntimeConfig(config) {
+    const connection = (config && config.connection) || {};
+    const serial = connection.serial || {};
+    const network = connection.network || {};
+    state.preferredMode = connection.default_mode === "serial" ? "serial" : "network";
+    state.preferredModes = Array.isArray(connection.preferred_modes) && connection.preferred_modes.length === 2
+      ? connection.preferred_modes.filter(mode => mode === "serial" || mode === "network")
+      : [state.preferredMode, state.preferredMode === "serial" ? "network" : "serial"];
+    state.serialPort = String(serial.default_port || state.serialPort || "").trim();
+    state.baudrate = Number(serial.baudrate) > 0 ? Number(serial.baudrate) : 115200;
+    if (!state.host) state.host = String(network.default_host || "").trim();
+    state.networkHttpPort = Number(network.http_port) > 0 ? Number(network.http_port) : 80;
+    state.networkTelnetPort = Number(network.telnet_port) > 0 ? Number(network.telnet_port) : 23;
+    state.networkTimeout = Number(network.timeout) > 0 ? Number(network.timeout) : 5;
+    state.connectionConfigLoaded = true;
+    const els = connectionEls();
+    if (els.host) els.host.value = state.host;
+    if (els.baudrate) els.baudrate.value = String(state.baudrate);
+    if (els.telnetPort) els.telnetPort.value = String(state.networkTelnetPort);
+    updateConnectionFields();
+    setConnectionNote(`首选：${modeLabel(state.preferredMode)} · 失败时自动检查${modeLabel(state.preferredModes[1])}`, "ok");
+  }
+  async function loadRuntimeConfig() {
+    try {
+      const result = await apiGet("/api/ui/runtime-config", 10000);
+      applyRuntimeConfig(result);
+      addLog("运行配置已加载", `首选 ${modeLabel(state.preferredMode)} · 串口/网络配置已就绪`, "ok");
+    } catch (err) {
+      // Keep a conservative local fallback so the UI remains usable if the config adapter is unavailable.
+      state.preferredMode = "network";
+      state.preferredModes = ["network", "serial"];
+      state.connectionConfigLoaded = false;
+      updateConnectionFields();
+      setConnectionNote("运行配置读取失败 · 请检查 Web 服务", "warn");
+      addLog("运行配置加载失败", String(err.message || err), "warn");
+    }
+  }
+  async function loadSerialPorts(logResult = true) {
+    try {
+      const result = await apiGet("/api/ui/serial-ports", 10000);
+      state.serialPorts = Array.isArray(result && result.ports) ? result.ports : [];
+      if (!state.serialPort && result && result.default_port) state.serialPort = String(result.default_port);
+      if (result && Number(result.baudrate) > 0 && !connectionEls().baudrate.value) {
+        state.baudrate = Number(result.baudrate);
+      }
+      fillSerialPorts(state.serialPort);
+      if (logResult) addLog("串口列表已刷新", `${state.serialPorts.length} 个可用串口`, "info");
+    } catch (err) {
+      state.serialPorts = [];
+      fillSerialPorts("");
+      if (logResult) addLog("串口列表刷新失败", String(err.message || err), "warn");
+    }
+  }
+  function currentRequestedConnectionMode() {
+    const value = connectionEls().mode && connectionEls().mode.value;
+    return value && value !== "auto" ? value : "";
+  }
+  function connectionPayload(modeOverride) {
+    const mode = modeOverride || currentRequestedConnectionMode();
+    const payload = {
+      connection_mode: mode,
+      preferred_mode: mode ? "" : state.preferredMode,
+      auto_fallback: true,
+      include_detail: true,
+      port: state.serialPort || "",
+      baudrate: Number(state.baudrate) || 115200,
+      network_host: state.host || "",
+      network_transport: "telnet",
+      network_http_port: Number(state.networkHttpPort) || 80,
+      network_telnet_port: Number(state.networkTelnetPort) || 23,
+      network_timeout: Number(state.networkTimeout) || 5,
+    };
+    return payload;
+  }
+  function connectionSummary(result) {
+    if (!result) return "未检测到设备连接";
+    const mode = result.selected_mode;
+    if (mode) {
+      const suffix = result.fallback_used ? "（已自动回退）" : "";
+      return `${modeLabel(mode)}已连接${suffix}`;
+    }
+    return String(result.summary || "未检测到设备连接");
+  }
+  function applyConnectionResult(result) {
+    const selected = result && result.selected_mode;
+    state.activeConnectionMode = selected || "";
+    state.connectionFallbackUsed = Boolean(result && result.fallback_used);
+    if (selected === "serial") {
+      const detail = (result.detail && result.detail.serial) || {};
+      const attempt = (result.attempts || []).find(item => item.mode === "serial") || {};
+      const serial = attempt.detail || detail;
+      if (serial.port) {
+        state.serialPort = String(serial.port);
+        const sel = connectionEls().ports;
+        if (sel) sel.value = state.serialPort;
+      }
+      if (serial.baudrate) {
+        state.baudrate = Number(serial.baudrate);
+        const input = connectionEls().baudrate;
+        if (input) input.value = String(state.baudrate);
+      }
+    }
+    if (selected === "network" && result.detail && result.detail.network && result.detail.network.host) {
+      state.host = String(result.detail.network.host);
+      const host = connectionEls().host;
+      if (host) host.value = state.host;
+    }
+    const summary = connectionSummary(result);
+    setConnectionNote(summary, selected ? "ok" : "warn");
+    setConnected(Boolean(selected), summary);
+    return selected;
+  }
+  async function preflightConnection() {
+    const result = await apiCall("/api/connection/check", connectionPayload(), 30000);
+    const selected = applyConnectionResult(result || {});
+    if (!selected) throw new Error((result && result.summary) || "未检测到串口或网络连接");
+    return result;
+  }
+
+  /* ---------- 日志 ---------- */
+  const logBody = $("#log-body");
+  function addLog(title, msg, type) {
+    const line = document.createElement("div");
+    line.className = "log-line " + (type || "");
+    const t = document.createElement("span"); t.className = "t"; t.textContent = nowStamp();
+    const m = document.createElement("span"); m.className = "m";
+    const b = document.createElement("b");
+    b.style.color = "var(--ink-dim)";
+    b.style.fontWeight = "500";
+    b.textContent = title;
+    m.appendChild(b);
+    m.appendChild(document.createTextNode(" · " + msg));
+    line.appendChild(t); line.appendChild(m);
+    logBody.appendChild(line);
+    logBody.scrollTop = logBody.scrollHeight;
+    while (logBody.children.length > 200) logBody.removeChild(logBody.firstChild);
+  }
+
+  /* ---------- 材料卡 / 选择（由后端材料库 options 生成） ---------- */
+  const matGrid = $("#material-grid");
+  function renderMaterialCards() {
+    matGrid.innerHTML = "";
+    if (!materialsState.options.length) {
+      const hint = document.createElement("div");
+      hint.className = "mat-empty-hint";
+      hint.textContent = materialsState.loaded
+        ? "材料库为空 · 当前为自定义参数模式"
+        : (materialsState.failed
+          ? "材料库加载失败 · 已进入自定义模式 · 可点击「刷新」重试"
+          : "材料库加载中…");
+      matGrid.appendChild(hint);
+      return;
+    }
+    materialsState.options.forEach(opt => {
+      const card = document.createElement("div");
+      card.className = "mat-card reveal" + (opt.name === state.material ? " active" : "");
+      card.dataset.name = opt.name;
+      const color = matColorFor(opt.name);
+      const chips = opt.thicknesses.map(t => Number(t)).join(" · ") + " mm";
+      card.innerHTML = `
+        <div class="mat-swatch" style="background:linear-gradient(135deg, ${color}, ${color}88)"></div>
+        <div class="check-mark"><i data-lucide="check"></i></div>
+        <b><i data-lucide="layers"></i>${escHtml(opt.name)}</b>
+        <div class="mat-sub">可选厚度：${chips}</div>
+        <div class="mat-specs">
+          <span><b>${chips}</b></span>
+          <span>${opt.thicknesses.length} 档厚度</span>
+        </div>
+        <div class="mat-card-actions">
+          <button class="mat-card-btn" data-act="edit" title="编辑此材料"><i data-lucide="pencil"></i></button>
+          <button class="mat-card-btn danger" data-act="del" title="删除此材料"><i data-lucide="trash-2"></i></button>
+        </div>`;
+      card.addEventListener("click", (e) => {
+        const act = e.target.closest("[data-act]");
+        if (act) {
+          e.stopPropagation();
+          if (act.dataset.act === "edit") openMaterialModal(opt.name);
+          else if (act.dataset.act === "del") confirmDeleteMaterial(opt.name);
+          return;
+        }
+        selectMaterial(opt.name);
+      });
+      matGrid.appendChild(card);
+      io.observe(card);   // 动态重建的卡片必须重新 observe，否则 reveal 透明不可见（回归防护）
+    });
+    applyIcons();
+  }
+  function fillMatSelect() {
+    const sel = $("#material-select");
+    sel.innerHTML = "";
+    materialsState.options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt.name;
+      o.textContent = opt.name + " · " + opt.thicknesses.map(t => Number(t)).join("/") + " mm";
+      sel.appendChild(o);
+    });
+    if (selectedMaterial()) sel.value = state.material;
+  }
+  function fillDrawMaterialSelect() {
+    const sel = document.getElementById("draw-material");
+    sel.innerHTML = "";
+    materialsState.options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt.name;
+      o.textContent = opt.name + " · " + opt.thicknesses.map(t => Number(t)).join("/") + " mm";
+      sel.appendChild(o);
+    });
+    if (selectedMaterial()) sel.value = state.material;
+  }
+
+  /* ---------- 材料管理弹窗（页内编辑，复用 /api/material-lab/manage） ---------- */
+  const matModal = {
+    name: null,           // null = 添加新材料；字符串 = 编辑已有材料
+    busy: false,
+    el: null,             // 弹窗 DOM（首次 open 时缓存）
+  };
+
+  function matModalElements() {
+    if (matModal.el) return matModal.el;
+    matModal.el = {
+      backdrop: $("#mat-modal"),
+      titleText: $("#mat-modal-title-text"),
+      name: $("#mat-f-name"),
+      thick: $("#mat-f-thick"),
+      power: $("#mat-f-power"),
+      speed: $("#mat-f-speed"),
+      err: $("#mat-modal-err"),
+      del: $("#mat-f-delete"),
+      save: $("#mat-f-save"),
+      saveText: $("#mat-f-save-text"),
+    };
+    return matModal.el;
+  }
+
+  function matModalShowError(msg) {
+    const els = matModalElements();
+    if (msg) { els.err.textContent = msg; els.err.hidden = false; }
+    else { els.err.textContent = ""; els.err.hidden = true; }
+  }
+
+  function matModalSetBusy(busy) {
+    matModal.busy = busy;
+    const els = matModalElements();
+    els.save.disabled = busy;
+    els.del.disabled = busy;
+    els.saveText.textContent = busy ? "保存中…" : "保存";
+  }
+
+  function openMaterialModal(name) {
+    const els = matModalElements();
+    matModal.name = name || null;
+    matModalSetBusy(false);
+    matModalShowError(null);
+    els.titleText.textContent = name ? "编辑材料" : "添加材料";
+    els.del.hidden = !name;
+    els.name.value = name || "";
+    els.thick.value = name ? (findOption(name)?.thicknesses || []).map(t => Number(t)).join(", ") : "";
+    els.name.disabled = !!name;   // 改名会导致别名错乱：编辑时锁定名称，只改参数
+    els.power.value = "";
+    els.speed.value = "";
+    els.backdrop.hidden = false;
+    if (name) {
+      // 预填该材料 engrave/raster 推荐参数；失败则留空用默认值
+      const mode = modeApi();
+      const qs = new URLSearchParams({
+        material: name,
+        thickness_mm: String((findOption(name)?.thicknesses || [3])[0] || 3),
+        laser_mode: mode.laser_mode,
+      });
+      if (mode.engraving_mode) qs.set("engraving_mode", mode.engraving_mode);
+      apiGet("/api/ui/material-recommendation?" + qs.toString(), 8000)
+        .then(result => {
+          if (!result) return;
+          const power = Number(result.laser_max_power);
+          const speed = Number(result.feed_rate);
+          if (Number.isFinite(power) && power > 0) els.power.value = clamp(Math.round(power / 10), 10, 100);
+          if (Number.isFinite(speed) && speed > 0) els.speed.value = clamp(Math.round(speed / 60), 10, 600);
+        })
+        .catch(() => { /* 预填失败不阻塞：保存时用默认值 */ });
+      setTimeout(() => els.power.focus(), 0);
+    } else {
+      setTimeout(() => els.name.focus(), 0);
+    }
+  }
+
+  function closeMaterialModal() {
+    matModalElements().backdrop.hidden = true;
+    matModal.name = null;
+  }
+
+  function parseThicknessList(text) {
+    const values = [];
+    for (const part of String(text || "").split(/[,，、\s]+/)) {
+      if (!part) continue;
+      const v = Number(part);
+      if (!Number.isFinite(v) || v <= 0) return null;
+      values.push(v);
+    }
+    return values.length ? values : null;
+  }
+
+  async function saveMaterialFromModal() {
+    if (matModal.busy) return;
+    const els = matModalElements();
+    const name = els.name.value.trim();
+    if (!name) { matModalShowError("请填写材料名称。"); return; }
+    const thicknesses = parseThicknessList(els.thick.value);
+    if (!thicknesses) { matModalShowError("请填写有效厚度（大于 0 的数字，多个用逗号隔开）。"); return; }
+    const powerPct = Number(els.power.value);
+    const speed = Number(els.speed.value);
+    if (!Number.isFinite(powerPct) || powerPct < 1 || powerPct > 100) {
+      matModalShowError("功率需为 1 - 100 之间的数字（%）。"); return;
+    }
+    if (!Number.isFinite(speed) || speed < 1 || speed > 600) {
+      matModalShowError("速度需为 1 - 600 之间的数字（mm/s）。"); return;
+    }
+    const laserMaxPower = Math.round(powerPct * 10);   // 后端 S 单位（0-1000）
+    const feedRate = Math.round(speed * 60);           // 后端 F 单位（mm/min）
+
+    matModalSetBusy(true);
+    try {
+      for (const t of thicknesses) {
+        const result = await apiCall("/api/material-lab/manage", {
+          action: "save",
+          material: name,
+          thickness_mm: t,
+          laser_mode: "engrave",
+          engraving_mode: "raster",
+          laser_min_power: 0,
+          laser_max_power: laserMaxPower,
+          feed_rate: feedRate,
+        });
+        if (!result) throw new Error("后端未返回保存结果");
+      }
+      const prevName = matModal.name;
+      closeMaterialModal();
+      addLog("材料已保存", `「${name}」厚度 ${thicknesses.map(t => Number(t)).join(" · ")}mm 已写入材料库`, "ok");
+      notifyMaterialsUpdated();
+      await loadMaterialOptions();
+      if (prevName) {
+        addLog("材料库已同步", "编辑已生效 · 重新加载材料列表", "info");
+      } else {
+        selectMaterial(name);
+        addLog("材料库已同步", `已切换到新材料「${name}」`, "info");
+      }
+    } catch (err) {
+      addLog("材料保存失败", String(err.message || err), "err");
+      matModalShowError("保存失败：" + String(err.message || err));
+    } finally {
+      matModalSetBusy(false);
+    }
+  }
+
+  async function confirmDeleteMaterial(name) {
+    if (!name) return;
+    if (matModal.busy) return;
+    if (!confirm(`确定删除材料「${name}」的已保存参数吗？\n内置材料将恢复为默认参数；自定义材料将被移除。`)) return;
+    matModalSetBusy(true);
+    try {
+      const opt = findOption(name);
+      const thicknesses = opt ? opt.thicknesses : [3];
+      let deletedAny = false;
+      for (const t of thicknesses) {
+        for (const mode of [{ laser_mode: "engrave", engraving_mode: "raster" }, { laser_mode: "engrave", engraving_mode: "outline" }, { laser_mode: "cut", engraving_mode: "" }]) {
+          try {
+            await apiCall("/api/material-lab/manage", {
+              action: "delete",
+              confirmed: true,
+              material: name,
+              thickness_mm: t,
+              laser_mode: mode.laser_mode,
+              engraving_mode: mode.engraving_mode,
+            });
+            deletedAny = true;
+          } catch (err) {
+            // 该厚度/模式组合本就没有已保存参数 → 视为已删除，继续下一个
+          }
+        }
+      }
+      closeMaterialModal();
+      await loadMaterialOptions();
+      const stillExists = !!findOption(name);
+      if (!stillExists) {
+        addLog("材料已删除", `「${name}」已从材料库移除`, "ok");
+      } else if (deletedAny) {
+        addLog("材料参数已重置", `「${name}」已保存参数已删除 · 恢复为默认参数`, "ok");
+      } else {
+        addLog("材料参数已重置", `「${name}」没有已保存参数 · 保持默认参数`, "info");
+      }
+      notifyMaterialsUpdated();
+    } catch (err) {
+      addLog("材料删除失败", String(err.message || err), "err");
+      matModalShowError("删除失败：" + String(err.message || err));
+    } finally {
+      matModalSetBusy(false);
+    }
+  }
+
+  function notifyMaterialsUpdated() {
+    try {
+      if (typeof BroadcastChannel === "function") {
+        new BroadcastChannel("laser-material-library-v1").postMessage({ type: "materials-updated" });
+      }
+    } catch (e) { /* 无 BroadcastChannel 时依赖 focus/visibilitychange 兜底 */ }
+  }
+
+  function selectMaterial(name) {
+    const opt = findOption(name);
+    if (!opt) return;
+    const prev = state.material;
+    state.material = name;
+    if (prev !== name) {
+      state.thickness = opt.thicknesses[0] || 3;   // 切换材料：默认该材料第一厚度
+      syncThicknessSlider();
+    }
+    $$(".mat-card").forEach(c => c.classList.toggle("active", c.dataset.name === name));
+    $("#material-select").value = name;
+    addLog("材料已切换", `${name} · 可选厚度 ${opt.thicknesses.map(t => Number(t)).join(" / ")} mm · 推荐参数套用中`, "info");
+    window.dispatchEvent(new CustomEvent("draw-material-sync"));
+    updateRecommendation();
+    applyRecommendation();
+    resetPreview();
+  }
+  renderMaterialCards();
+
+  /* ---------- 材料下拉 ---------- */
+  const matSelect = $("#material-select");
+  fillMatSelect();
+  matSelect.addEventListener("change", () => selectMaterial(matSelect.value));
+
+  /* ---------- 模式 ---------- */
+  const modeSelect = $("#mode-select");
+  modeSelect.addEventListener("change", () => {
+    state.mode = modeSelect.value;
+    updateRecommendation();
+    applyRecommendation();
+    addLog("雕刻模式切换", { engrave: "雕刻 · 填充", line: "线条 · 描边", cut: "切割 · 穿透" }[state.mode], "info");
+    resetPreview();
+  });
+
+  /* ---------- 滑块联动 ---------- */
+  $("#power").addEventListener("input", () => {
+    state.power = +$("#power").value;
+    $("#power-val").innerHTML = state.power + '<span class="unit">%</span>';
+  });
+  $("#speed").addEventListener("input", () => {
+    state.speed = +$("#speed").value;
+    $("#speed-val").innerHTML = state.speed + '<span class="unit">mm/s</span>';
+  });
+  $("#thickness").addEventListener("input", () => {
+    state.thickness = +$("#thickness").value;
+    $("#thickness-val").innerHTML = state.thickness.toFixed(1) + '<span class="unit">mm</span>';
+    scheduleRecommendation();
+  });
+
+  /* ---------- 工具切换 ---------- */
+  const textInputWrap = document.querySelector(".text-input-wrap");
+  function applyToolUI() {
+    const t = state.tool;
+    textInputWrap.hidden = t !== "text";
+    $("#source-panel").hidden = !(t === "image" || t === "gcode" || t === "draw");
+    $("#image-drop").hidden = t !== "image";
+    $("#gcode-drop").hidden = t !== "gcode";
+    $("#draw-pad").hidden = t !== "draw";
+    if (t === "draw" && !drawPadInited) initDrawPad();
+  }
+  $$("#tool-row .tool-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      $$("#tool-row .tool-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      state.tool = chip.dataset.tool;
+      addLog("输入源切换", chip.textContent.trim(), "info");
+      if (state.tool === "text") {
+        textInput.focus();
+      }
+      applyToolUI();
+      resetPreview();
+    });
+  });
+
+  /* ---------- 文字输入 ---------- */
+  const textInput = $("#text-input");
+  const MAX_CHARS = 24;
+  function updateCounter() {
+    const n = textInput.value.length;
+    $("#char-num").textContent = n;
+    $("#char-counter").textContent = `${n} / ${MAX_CHARS} 字符`;
+  }
+  textInput.addEventListener("input", () => {
+    updateCounter();
+    state.text = textInput.value;
+    resetPreview();
+  });
+
+  /* ---------- 图片上传 ---------- */
+  const fileInput = $("#file-input");
+  const gcodeInput = $("#gcode-input");
+  const imageDrop = $("#image-drop");
+  const gcodeDrop = $("#gcode-drop");
+
+  function bindDrop(zone, input, onFile) {
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault(); zone.classList.remove("over");
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) onFile(f);
+    });
+  }
+  bindDrop(imageDrop, fileInput, handleImageFile);
+  bindDrop(gcodeDrop, gcodeInput, handleGcodeFile);
+  fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleImageFile(fileInput.files[0]); fileInput.value = ""; });
+  gcodeInput.addEventListener("change", () => { if (gcodeInput.files[0]) handleGcodeFile(gcodeInput.files[0]); gcodeInput.value = ""; });
+
+  function handleImageFile(f) {
+    const okExt = /\.(png|jpg|jpeg|webp|bmp|gif)$/i.test(f.name);
+    if (!okExt) { addLog("文件类型错误", `${f.name} 不是支持上传的图片（PNG / JPG / WEBP / BMP / GIF）`, "err"); return; }
+    if (f.size > 8 * 1024 * 1024) { addLog("文件过大", `${f.name} 超过 8MB 上限`, "err"); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const content_base64 = dataUrl.indexOf(",") >= 0 ? dataUrl.split(",")[1] : dataUrl;
+      $("#image-file-name").textContent = f.name + " · 上传中…";
+      $("#image-file-name").hidden = false;
+      apiCall("/api/upload", { filename: f.name, content_base64 })
+        .then(result => {
+          state.imageFile = { name: f.name, dataUrl, file_path: result.file_path };
+          $("#image-file-name").textContent = f.name + " · " + Math.max(1, Math.round(f.size / 1024)) + " KB";
+          addLog("图片已上传", `${f.name} · 已保存到后端上传目录`, "ok");
+          resetPreview();
+        })
+        .catch(err => {
+          state.imageFile = null;
+          $("#image-file-name").hidden = true;
+          addLog("图片上传失败", String(err.message || err), "err");
+        });
+    };
+    reader.onerror = () => addLog("文件读取失败", f.name, "err");
+    reader.readAsDataURL(f);
+  }
+
+  function handleGcodeFile(f) {
+    const okExt = /\.(gcode|nc)$/i.test(f.name);
+    if (!okExt) { addLog("文件类型错误", `${f.name} 不是 G-code 文件（仅支持 .gcode / .nc）`, "err"); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result || "");
+      const lineCount = content.split(/\r?\n/).filter(l => l.trim()).length;
+      if (lineCount < 1) { addLog("文件无效", `${f.name} 没有有效指令`, "err"); return; }
+      const dataUrl = "data:text/plain;base64," + btoa(unescape(encodeURIComponent(content)));
+      const content_base64 = dataUrl.split(",")[1];
+      $("#gcode-file-name").textContent = f.name + " · 上传中…";
+      $("#gcode-file-name").hidden = false;
+      apiCall("/api/upload", { filename: f.name, content_base64 })
+        .then(result => {
+          state.gcodeFile = { name: f.name, lines: lineCount, file_path: result.file_path };
+          $("#gcode-file-name").textContent = f.name + " · " + lineCount + " 行指令";
+          addLog("G-code 已上传", `${f.name} · ${lineCount} 行 · 已保存到后端上传目录`, "ok");
+          resetPreview();
+        })
+        .catch(err => {
+          state.gcodeFile = null;
+          $("#gcode-file-name").hidden = true;
+          addLog("G-code 上传失败", String(err.message || err), "err");
+        });
+    };
+    reader.onerror = () => addLog("文件读取失败", f.name, "err");
+    reader.readAsText(f);
+  }
+
+  /* ---------- 画板（Excalidraw） ---------- */
+  let drawPadInited = false;
+  let excalidrawAPI = null;
+  const drawExcalidrawEl = document.getElementById("draw-excalidraw");
+  const drawControls = document.getElementById("draw-controls");
+
+  // 材料下拉（与工作台联动；选项由后端材料库 options 生成）
+  (function bindDrawMaterials() {
+    const sel = document.getElementById("draw-material");
+    fillDrawMaterialSelect();
+    sel.addEventListener("change", () => {
+      const opt = findOption(sel.value);
+      if (!opt) return;
+      // 画板下拉切换时厚度用该材料第一厚度
+      document.getElementById("draw-thickness").value = opt.thicknesses[0];
+      addLog("画板材料已切换", `${opt.name} · 厚度 ${opt.thicknesses[0]}mm`, "info");
+    });
+    // 材料卡 / 工作台材料下拉切换时同步画板材料
+    window.addEventListener("draw-material-sync", () => {
+      if (selectedMaterial()) sel.value = state.material;
+    });
+  })();
+
+  function initDrawPad() {
+    drawPadInited = true;
+    drawControls.hidden = false;
+    const host = document.getElementById("draw-host");
+    host.addEventListener("input", () => {
+      state.drawHost = host.value.trim();
+      if (state.drawHost) {
+        state.host = state.drawHost;
+        $("#host-input").value = state.host;
+        localStorage.setItem("laser-forge-host", state.host);
+      }
+    });
+
+    if (!window.ForgeDraw) {
+      const fallback = document.createElement("div");
+      fallback.className = "draw-hint";
+      fallback.textContent = "Excalidraw 画板加载中…";
+      drawExcalidrawEl.appendChild(fallback);
+      const wait = () => {
+        if (window.ForgeDraw) { mountExcalidraw(); return; }
+        if (window.excalidrawLoadFailed) {
+          fallback.textContent = "Excalidraw 加载失败：forge-draw.bundle.js 未就绪，请刷新重试。画板功能不可用。";
+          return;
+        }
+        setTimeout(wait, 300);
+      };
+      wait();
+    } else {
+      mountExcalidraw();
+    }
+  }
+
+  function mountExcalidraw() {
+    if (drawExcalidrawEl.dataset.mounted) return;
+    const F = window.ForgeDraw;
+    const container = drawExcalidrawEl;
+    const root = F.createRoot(container);
+    root.render(
+      F.React.createElement(F.Excalidraw, {
+        excalidrawAPI: (api) => { excalidrawAPI = api; window.__excalidrawAPI = api; },
+        theme: "dark",
+        langCode: "zh-CN",
+        UIOptions: { canvasActions: { toggleTheme: false } },
+      })
+    );
+    container.dataset.mounted = "1";
+    addLog("画板已就绪", "Excalidraw 完整画板加载成功 · 支持矢量 / 框选 / 文字", "ok");
+  }
+
+  // 画板高度拖拽调节
+  (function initDrawResize() {
+    const pad = document.querySelector(".draw-pad");
+    const handle = document.getElementById("draw-resize");
+    const minH = 320, maxH = 860;
+    // 恢复上次调节的高度
+    try {
+      const saved = Number(localStorage.getItem("laser-forge-draw-h") || 0);
+      if (saved >= minH && saved <= maxH) { pad.style.height = saved + "px"; }
+    } catch (e) { /* 忽略 */ }
+    let dragging = false, startY = 0, startH = 0;
+    handle.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      startY = e.clientY;
+      startH = pad.getBoundingClientRect().height;
+      handle.classList.add("dragging");
+      pad.style.transition = "none";
+      try { handle.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件下忽略 */ }
+      e.preventDefault();
+    });
+    window.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const h = Math.max(minH, Math.min(maxH, startH + (e.clientY - startY)));
+      pad.style.height = h + "px";
+    });
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove("dragging");
+      pad.style.transition = "";
+      try { localStorage.setItem("laser-forge-draw-h", String(Math.round(pad.getBoundingClientRect().height))); } catch (e) {}
+    };
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
+  })();
+
+  // 导出 PNG / 场景 JSON（本地 Blob）
+  async function exportDrawBlob() {
+    if (!excalidrawAPI) throw new Error("画板还没有加载完成");
+    const elements = excalidrawAPI.getSceneElements().filter((el) => !el.isDeleted);
+    if (elements.length === 0) throw new Error("画板是空的");
+    const appState = excalidrawAPI.getAppState();
+    const files = excalidrawAPI.getFiles();
+    const exportAppState = {
+      ...appState,
+      exportBackground: true,
+      exportWithDarkMode: false,
+      viewBackgroundColor: "#ffffff",
+    };
+    const blob = await window.ForgeDraw.exportToBlob({
+      elements, appState: exportAppState, files,
+      mimeType: "image/png", quality: 1, exportPadding: 16,
+    });
+    return { blob, elements, appState, files };
+  }
+
+  async function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click(); anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("PNG 读取失败"));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  document.getElementById("draw-export-png").addEventListener("click", async () => {
+    try {
+      const { blob } = await exportDrawBlob();
+      await downloadBlob(blob, "laser-forge-draw.png");
+      addLog("画板 PNG 已导出", "下载 laser-forge-draw.png", "ok");
+    } catch (e) {
+      addLog("PNG 导出失败", e.message || String(e), "err");
+    }
+  });
+
+  document.getElementById("draw-export-scene").addEventListener("click", async () => {
+    try {
+      const { elements, appState } = await exportDrawBlob();
+      const scene = { type: "excalidraw", version: 2, source: "laser-forge", elements, appState: { gridSize: appState.gridSize, name: appState.name, viewBackgroundColor: appState.viewBackgroundColor } };
+      const blob = new Blob([JSON.stringify(scene, null, 2)], { type: "application/json" });
+      await downloadBlob(blob, "laser-forge-draw.excalidraw.json");
+      addLog("画板场景已导出", "下载 laser-forge-draw.excalidraw.json", "ok");
+    } catch (e) {
+      addLog("场景导出失败", e.message || String(e), "err");
+    }
+  });
+
+  /* ---------- 预览画布 ---------- */
+  const pv = $("#preview-canvas");
+  const pctx = pv.getContext("2d");
+  const emptyEl = $("#preview-empty");
+  const scanline = $("#scanline");
+  const fillEl = $("#progress-fill");
+  const pvW = 512, pvH = 320;
+
+  function resizePreview() {
+    const r = pv.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    pv.width = r.width * dpr;
+    pv.height = r.height * dpr;
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.clearRect(0, 0, r.width, r.height);
+    drawPreviewFrame();
+  }
+  window.addEventListener("resize", resizePreview);
+
+  let previewText = "";
+  let previewState = "idle"; // idle | carving | done | image
+  let carveT = 0;
+  let carveTimer = null;
+  let previewImage = null;
+
+  function resetPreview() {
+    previewState = "idle";
+    carveT = 0;
+    if (carveTimer) { cancelAnimationFrame(carveTimer); carveTimer = null; }
+    scanline.classList.remove("on");
+    $("#preview-label").textContent = "等待输入";
+    $("#meta-eta").textContent = "ETA —";
+    fillEl.style.width = "0%";
+    state.lines = 0;
+    state.workflowId = "";
+    previewImage = null;
+    $("#stat-lines").textContent = "—";
+    $("#stat-time").textContent = "—";
+    resizePreview();
+    if (!emptyEl.hidden) { /* keep */ }
+  }
+
+  function drawPreviewFrame() {
+    const r = pv.getBoundingClientRect();
+    if (!r.width) return;
+    pctx.clearRect(0, 0, r.width, r.height);
+    if (previewState === "idle") { emptyEl.hidden = false; return; }
+    emptyEl.hidden = true;
+    if (previewState === "image" && previewImage) {
+      pctx.drawImage(previewImage, 0, 0, r.width, r.height);
+      return;
+    }
+
+    // 作品边框
+    pctx.strokeStyle = "rgba(53,224,255,0.22)";
+    pctx.lineWidth = 1;
+    pctx.setLineDash([4, 5]);
+    pctx.strokeRect(24, 24, r.width - 48, r.height - 48);
+    pctx.setLineDash([]);
+
+    // 文字：底部阴影层（已完成轨迹） + 顶部光束层（当前扫描行）
+    const cx = r.width / 2, cy = r.height / 2;
+    pctx.textAlign = "center"; pctx.textBaseline = "middle";
+    const baseSize = Math.min(96, Math.max(40, r.width / Math.max(3, previewText.length + 1)));
+    const cut = Math.max(0, Math.min(1, carveT));
+
+    // 已雕刻部分：激光青
+    pctx.save();
+    pctx.beginPath();
+    pctx.rect(0, cy - baseSize * 2.6, r.width, (cy - baseSize * 2.6 + baseSize * 5.2) * cut);
+    pctx.clip();
+    pctx.fillStyle = "rgba(53,224,255,0.85)";
+    pctx.font = `800 ${baseSize}px "Space Grotesk", "Microsoft YaHei", sans-serif`;
+    pctx.shadowColor = "rgba(53,224,255,0.9)";
+    pctx.shadowBlur = 22;
+    pctx.fillText(previewText, cx, cy);
+    pctx.restore();
+
+    // 未雕刻部分：暗轮廓
+    pctx.save();
+    pctx.beginPath();
+    pctx.rect(0, cy - baseSize * 2.6 + (cy - baseSize * 2.6 + baseSize * 5.2) * cut, r.width, baseSize * 5.2);
+    pctx.clip();
+    pctx.font = `800 ${baseSize}px "Space Grotesk", "Microsoft YaHei", sans-serif`;
+    pctx.fillStyle = "rgba(232,236,246,0.09)";
+    pctx.fillText(previewText, cx, cy);
+    pctx.restore();
+
+    // 扫描线位置
+    const scanY = (cy - baseSize * 2.6) + (baseSize * 5.2) * cut;
+    pctx.beginPath();
+    pctx.moveTo(24, scanY);
+    pctx.lineTo(r.width - 24, scanY);
+    pctx.strokeStyle = "rgba(255,255,255,0.9)";
+    pctx.shadowColor = "#35e0ff"; pctx.shadowBlur = 14;
+    pctx.lineWidth = 1.2;
+    pctx.stroke();
+    pctx.shadowBlur = 0;
+
+    // 扫描端点
+    const edge = (24 + r.width - 24) / 2;
+    pctx.beginPath();
+    pctx.arc(edge, scanY, 3, 0, Math.PI * 2);
+    pctx.fillStyle = "#fff";
+    pctx.shadowColor = "#f472d0"; pctx.shadowBlur = 16;
+    pctx.fill();
+    pctx.shadowBlur = 0;
+  }
+
+  function formatEta(s) {
+    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return pad2(m) + ":" + pad2(sec);
+  }
+
+  /* ---------- 参数推荐 ---------- */
+  const recoGrid = $("#reco-grid");
+  function updateRecommendation() {
+    recoGrid.innerHTML = "";
+    const name = selectedMaterial();
+    if (!name) {
+      // 无选中材料：渲染占位卡，不报 JS 错误
+      const placeholder = document.createElement("div");
+      placeholder.className = "reco-card reveal";
+      placeholder.innerHTML = `
+        <div class="reco-icon"><i data-lucide="flask-conical"></i></div>
+        <b>自定义模式</b>
+        <div class="reco-val">手动参数</div>
+        <div class="reco-desc">未选中材料库中的材料 · 功率 / 速度 / 厚度由滑块手动控制，生成请求仍可正常提交。</div>`;
+      recoGrid.appendChild(placeholder);
+      applyIcons();
+      placeholder.classList.add("in");
+      return;
+    }
+    const opt = findOption(name);
+    const thicknessTxt = Number(state.thickness).toFixed(1);
+    const thicknessChips = (opt && opt.thicknesses.length) ? opt.thicknesses.map(t => Number(t)).join("/") : "—";
+    const reco = [
+      { icon: "gauge", label: "输出功率", val: state.power + "%", desc: `当前 ${escHtml(name)} · ${state.mode === "cut" ? "切割" : "雕刻"} 模式 · 已按后端推荐参数套用。`, tag: "POWER" },
+      { icon: "timer", label: "扫描速度", val: state.speed + " mm/s", desc: `匹配 ${state.mode === "cut" ? "切割" : "雕刻"} 工艺，速度过快会降低灰度层次。`, tag: "FEED" },
+      { icon: "ruler", label: "焦距校准", val: thicknessTxt + " mm", desc: `当前厚度 ${thicknessTxt}mm · ${escHtml(name)} 库内厚度 ${thicknessChips}mm，按最近厚度匹配。`, tag: "FOCUS" },
+    ];
+    reco.forEach(r => {
+      const card = document.createElement("div");
+      card.className = "reco-card reveal";
+      card.innerHTML = `
+        <div class="reco-tag">${r.tag}</div>
+        <div class="reco-icon"><i data-lucide="${r.icon}"></i></div>
+        <b>${r.label}</b>
+        <div class="reco-val">${r.val}</div>
+        <div class="reco-desc">${r.desc}</div>`;
+      recoGrid.appendChild(card);
+    });
+    applyIcons();
+    $$("#reco-grid .reveal").forEach(el => el.classList.add("in"));
+  }
+  updateRecommendation();
+
+  /* ---------- G-code 生成 ---------- */
+  function drawHasElements() {
+    if (!window.__excalidrawAPI) return state.hasDrawing;
+    try {
+      return window.__excalidrawAPI.getSceneElements().filter(el => !el.isDeleted).length > 0;
+    } catch (e) { return state.hasDrawing; }
+  }  function buildTextPayload() {
+    const mode = state.mode;
+    return {
+      text: state.text.trim(),
+      material: selectedMaterial(),
+      thickness_mm: String(state.thickness),
+      laser_mode: mode === "cut" ? "cut" : "engrave",
+      engraving_mode: mode === "line" ? "outline" : "raster",
+    };
+  }
+
+  // 图片生成模式语义（outline/raster），v2 的 cut 对图片无意义 → outline。
+  function imageGenerationMode() {
+    if (state.mode === "engrave") return "raster";
+    return "outline";
+  }
+
+  async function generateGcode() {
+    if (state.generating) return;
+    const t = state.tool === "preset" ? "text" : state.tool;
+    if (t === "text") {
+      const text = state.text.trim();
+      if (!text) { addLog("生成被拦截", "请输入文字内容", "warn"); return; }
+    } else if (t === "image" && !(state.imageFile && state.imageFile.file_path)) {
+      addLog("生成被拦截", "请先选择并上传一张图片", "warn"); return;
+    } else if (t === "gcode" && !(state.gcodeFile && state.gcodeFile.file_path)) {
+      addLog("生成被拦截", "请先导入并上传 G-code 文件", "warn"); return;
+    } else if (t === "draw" && !drawHasElements()) {
+      addLog("生成被拦截", "请先在画板上绘制轨迹", "warn"); return;
+    }
+    state.generating = true;
+    const btn = $("#btn-gen");
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader-2"></i>生成中…';
+    applyIcons();
+    addLog("开始生成", `输入源：${chipLabel(t)} · 材料 ${selectedMaterial() || "自定义"} · ${state.mode}`, "info");
+    try {
+      if (t === "text") {
+        const result = await apiCall("/api/text-task/generate", buildTextPayload(), 60000);
+        handleGenerateResult(result);
+      } else if (t === "image") {
+        const result = await apiCall("/api/workflow", {
+          action: "preview",
+          source_type: "image",
+          image_file: state.imageFile.file_path,
+          material: selectedMaterial(),
+          thickness_mm: String(state.thickness),
+          mode: imageGenerationMode(),
+        }, 90000);
+        handleGenerateResult(result);
+      } else if (t === "gcode") {
+        const result = await apiCall("/api/workflow", {
+          action: "preview",
+          source_type: "prepared_gcode",
+          gcode_file: state.gcodeFile.file_path,
+          material: selectedMaterial(),
+          thickness_mm: String(state.thickness),
+        }, 90000);
+        handleGenerateResult(result);
+      } else if (t === "draw") {
+        const exported = await exportDrawBlob();
+        const dataUrl = await blobToDataUrl(exported.blob);
+        const scene = {
+          type: "excalidraw", version: 2, source: "laser-forge",
+          elements: exported.elements, appState: exported.appState,
+        };
+        const result = await apiCall("/api/draw/preview", {
+          image_data_url: dataUrl,
+          scene_json: JSON.stringify(scene),
+          material: selectedMaterial(),
+          thickness_mm: String($("#draw-thickness").value || state.thickness),
+          mode: $("#draw-mode").value || "auto",
+          width_mm: $("#draw-width").value || null,
+          height_mm: $("#draw-height").value || null,
+          network_host: state.drawHost || state.host || "",
+        }, 120000);
+        handleGenerateResult(result);
+      }
+    } catch (err) {
+      addLog("生成失败", String(err.message || err), "err");
+      resetPreview();
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+      applyIcons();
+      state.generating = false;
+    }
+  }
+
+  function chipLabel(t) {
+    return { text: "文字", image: "图片", gcode: "G-code", draw: "画板", preset: "预设" }[t] || t;
+  }
+
+  function handleGenerateResult(result) {
+    if (!result) { resetPreview(); return; }
+    state.workflowResult = result;
+    state.workflowId = result.workflow_id || "";
+    const artifacts = result.artifacts || {};
+    const timeEstimate = artifacts.time_estimate || result.time_estimate || {};
+    const eta = timeEstimate.estimated_seconds;
+    if (typeof eta === "number") {
+      state.totalSeconds = Math.round(eta);
+      $("#stat-time").textContent = formatEta(eta);
+      $("#meta-eta").textContent = "ETA " + formatEta(eta);
+    }
+    if (typeof artifacts.gcode_file === "string" && artifacts.gcode_file) {
+      state.lines = 1;
+      $("#stat-lines").textContent = "—";
+    }
+    const web = result.web || {};
+    previewMaterialUrl = web.material_preview_url || web.image_preview_url || "";
+    previewGcodeUrl = web.gcode_preview_url || "";
+    if (!previewMaterialUrl && !previewGcodeUrl) {
+      resetPreviewImages();
+    }
+    const warnings = (result.recommendation && result.recommendation.warnings) || result.warnings || [];
+    if (Array.isArray(warnings) && warnings.length > 0) {
+      const card = $("#preview-warn-card");
+      card.hidden = false;
+      $("#preview-warnings").textContent = warnings.join("；");
+      addLog("参数提示", warnings.join("；"), "warn");
+    } else {
+      $("#preview-warn-card").hidden = true;
+    }
+    renderArtifactLinks(web);
+    selectPreviewView(previewMaterialUrl ? "img" : (previewGcodeUrl ? "gcode" : "img"));
+    const summary = result.speech || result.preview_summary || result.status || "预览就绪";
+    $("#preview-label").textContent = "预览就绪";
+    addLog("生成完成", String(summary), "ok");
+    if (!state.workflowId) addLog("提示", "后端未返回 workflow_id，发送与状态查询可能受限", "warn");
+    refreshActionButtons();
+  }
+
+  let previewMaterialUrl = "";
+  let previewGcodeUrl = "";
+  let previewView = "img"; // img | gcode
+
+  function resetPreviewImages() {
+    previewImage = null;
+    previewState = "idle";
+    scanline.classList.remove("on");
+    resizePreview();
+  }
+
+  function selectPreviewView(view) {
+    previewView = view;
+    $$(".preview-nav-btn").forEach(b => b.classList.toggle("active", b.id === ("pv-nav-" + view)));
+    const url = view === "img" ? previewMaterialUrl : previewGcodeUrl;
+    const label = $("#preview-label");
+    if (url) {
+      label.textContent = view === "img" ? "素材图" : "G-code 路径预览";
+      loadPreviewImage(url);
+    } else {
+      resetPreviewImages();
+      label.textContent = view === "img" ? "本次没有单独的素材图" : "本次没有可显示的 G-code 路径预览";
+    }
+  }
+
+  function renderArtifactLinks(web) {
+    const box = $("#pv-nav-links");
+    const links = [];
+    if (web && web.gcode_download_url) {
+      const a = document.createElement("a");
+      a.href = web.gcode_download_url;
+      a.target = "_blank";
+      a.textContent = "下载 G-code";
+      links.push(a);
+    }
+    if (web && web.workflow_json_url) {
+      const a = document.createElement("a");
+      a.href = web.workflow_json_url;
+      a.target = "_blank";
+      a.textContent = "Workflow 记录";
+      links.push(a);
+    }
+    if (web && web.task_json_url) {
+      const a = document.createElement("a");
+      a.href = web.task_json_url;
+      a.target = "_blank";
+      a.textContent = "任务记录";
+      links.push(a);
+    }
+    box.innerHTML = "";
+    links.forEach(a => box.appendChild(a));
+  }
+
+  function loadPreviewImage(url) {
+    const img = new Image();
+    img.onload = () => {
+      previewImage = img;
+      previewState = "image";
+      carveT = 0;
+      scanline.classList.remove("on");
+      resizePreview();
+    };
+    img.onerror = () => {
+      previewImage = null;
+      previewState = "idle";
+      $("#preview-label").textContent = "预览加载失败";
+      addLog("预览加载失败", url, "warn");
+      resizePreview();
+    };
+    img.src = url;
+  }
+
+  /* ---------- 发送任务（后台 job + 真实状态轮询） ---------- */
+  const overlay = $("#send-overlay");
+  const arc = $("#send-arc");
+  const C = 402.12;
+  const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled", "canceled"]);
+
+  function normalizeWorkflowStatus(value) {
+    const status = String(value || "").trim().toLowerCase();
+    return status === "canceled" ? "cancelled" : status;
+  }
+  function workflowInfo(result) {
+    const source = (result && typeof result === "object") ? result : {};
+    const workflow = (source.workflow && typeof source.workflow === "object") ? source.workflow : source;
+    const runtime = (workflow.runtime_job && typeof workflow.runtime_job === "object")
+      ? workflow.runtime_job
+      : ((source.runtime_job && typeof source.runtime_job === "object") ? source.runtime_job : {});
+    return {
+      workflow,
+      runtime,
+      status: normalizeWorkflowStatus(workflow.status || source.status || runtime.status),
+      jobId: String(runtime.job_id || source.job_id || ""),
+      speech: String(workflow.speech || source.speech || source.result || ""),
+    };
+  }
+  function setSendStage(status) {
+    const normalized = normalizeWorkflowStatus(status) || "pending";
+    const stageMap = {
+      pending: [0, "等待", "等待任务"],
+      queued: [0, "排队", "等待任务"],
+      preparing: [1, "准备", "准备发送"],
+      running: [2, "发送中", "正在向设备发送"],
+      sending: [2, "发送中", "正在向设备发送"],
+      completed: [3, "完成", "发送完成"],
+      failed: [2, "失败", "发送失败"],
+      cancelled: [2, "已取消", "任务已取消"],
+    };
+    const [activeIndex, label, title] = stageMap[normalized] || stageMap.pending;
+    const terminal = TERMINAL_STATUSES.has(normalized);
+    $("#send-core").textContent = label;
+    $("#send-pct").textContent = normalized.toUpperCase();
+    $("#send-title").textContent = title;
+    arc.classList.toggle("indeterminate", !terminal);
+    if (terminal) {
+      arc.style.strokeDashoffset = normalized === "completed" ? "0" : String(C * 0.75);
+    } else {
+      arc.style.strokeDashoffset = "0";
+    }
+    [0, 1, 2, 3].forEach(i => {
+      const el = $("#st-" + i);
+      el.classList.remove("done", "active", "failed");
+      if (normalized === "completed") el.classList.add("done");
+      else if (i < activeIndex) el.classList.add("done");
+      else if (i === activeIndex) el.classList.add(terminal ? "failed" : "active");
+      if (i < activeIndex) $("#stl-" + i).classList.add("done");
+      else $("#stl-" + i).classList.remove("done");
+    });
+    if (normalized === "completed") [0, 1, 2].forEach(i => $("#stl-" + i).classList.add("done"));
+  }
+  function showSendOverlay() {
+    overlay.classList.add("show");
+    setSendStage("pending");
+  }
+  function hideSendOverlay() {
+    overlay.classList.remove("show");
+    arc.classList.remove("indeterminate");
+  }
+  function stopStatusPolling() {
+    if (state.statusTimer) {
+      clearTimeout(state.statusTimer);
+      state.statusTimer = null;
+    }
+    state.statusPolling = false;
+    state.statusPollFailures = 0;
+  }
+  function sendConnectionPayload(mode) {
+    const selected = mode || state.activeConnectionMode || state.preferredMode || "network";
+    const payload = {
+      connection_mode: selected,
+      confirmed: true,
+      run_in_background: true,
+      wait_for_response: true,
+    };
+    if (selected === "serial") {
+      payload.port = state.serialPort || "";
+      payload.baudrate = Number(state.baudrate) || 115200;
+    } else {
+      payload.network_host = state.host || "";
+      payload.network_transport = "telnet";
+      payload.network_http_port = Number(state.networkHttpPort) || 80;
+      payload.network_telnet_port = Number(state.networkTelnetPort) || 23;
+      payload.network_timeout = Number(state.networkTimeout) || 5;
+    }
+    return payload;
+  }
+  function connectionDescription(mode) {
+    if (mode === "serial") {
+      return `串口：${state.serialPort || "自动检测"} · 波特率：${Number(state.baudrate) || 115200}`;
+    }
+    return `网络：${state.host || "未填写"} · Telnet：${Number(state.networkTelnetPort) || 23}`;
+  }
+  function applyWorkflowStatus(result, { log = true } = {}) {
+    const info = workflowInfo(result);
+    if (!info.status) return info;
+    state.workflowResult = result;
+    if (info.jobId) state.jobId = info.jobId;
+    const statusKey = `${info.status}:${info.jobId}`;
+    const changed = state.lastStatus !== statusKey;
+    state.lastStatus = statusKey;
+    setSendStage(info.status);
+    if (info.status === "pending" || info.status === "queued" || info.status === "preparing" || info.status === "running" || info.status === "sending") {
+      state.sending = true;
+      if (!overlay.classList.contains("show")) showSendOverlay();
+      if (log && changed) addLog("任务状态", `${info.status}${info.jobId ? ` · job ${info.jobId}` : ""}${info.speech ? " · " + info.speech : ""}`, "info");
+    } else if (TERMINAL_STATUSES.has(info.status)) {
+      state.sending = false;
+      stopStatusPolling();
+      if (info.status === "completed") {
+        if (!state.jobCounted) {
+          state.jobs += 1;
+          $("#stat-jobs").textContent = String(state.jobs);
+          state.jobCounted = true;
+        }
+        if (log && changed) addLog("发送完成", info.speech || "后台任务已完成", "ok");
+      } else if (info.status === "failed") {
+        setConnected(false);
+        if (log && changed) addLog("发送失败", info.speech || "后台任务失败", "err");
+      } else if (log && changed) {
+        addLog("任务已取消", info.speech || "后续 G-code 已取消", "warn");
+      }
+      setTimeout(hideSendOverlay, 650);
+    }
+    refreshActionButtons();
+    return info;
+  }
+  async function pollWorkflowStatusOnce({ log = true } = {}) {
+    if (!state.workflowId) return null;
+    const result = await apiCall("/api/workflow", {
+      action: "status",
+      workflow_id: state.workflowId,
+    }, 15000);
+    return applyWorkflowStatus(result, { log });
+  }
+  function startStatusPolling() {
+    stopStatusPolling();
+    state.statusPolling = true;
+    state.sending = true;
+    const tick = async () => {
+      if (!state.statusPolling) return;
+      try {
+        const info = await pollWorkflowStatusOnce({ log: true });
+        if (!info || TERMINAL_STATUSES.has(info.status)) return;
+        state.statusTimer = setTimeout(tick, 1000);
+      } catch (err) {
+        state.statusPollFailures += 1;
+        if (state.statusPollFailures <= 3 || state.statusPollFailures % 3 === 0) {
+          addLog("状态轮询失败", String(err.message || err), "warn");
+        }
+        if (state.statusPollFailures >= 5) {
+          stopStatusPolling();
+          state.sending = false;
+          hideSendOverlay();
+          addLog("状态轮询停止", "连续多次无法读取后端状态，请手动点击「查状态」；未自动重发", "err");
+          refreshActionButtons();
+          return;
+        }
+        state.statusTimer = setTimeout(tick, Math.min(5000, 1000 * state.statusPollFailures));
+      }
+    };
+    tick();
+  }
+
+  async function confirmSend() {
+    if (!state.workflowId) {
+      addLog("发送被拦截", "请先完成一次生成预览", "warn");
+      return;
+    }
+    if (state.sending || state.statusPolling) {
+      addLog("发送被拦截", "当前已有后台发送任务", "warn");
+      return;
+    }
+    const button = $("#btn-send");
+    button.disabled = true;
+    addLog("发送前预检", "按 .env 优先级检查连接，必要时自动回退…", "info");
+    try {
+      const preflight = await preflightConnection();
+      const selected = preflight && preflight.selected_mode;
+      if (!selected) throw new Error((preflight && preflight.summary) || "未检测到可用设备连接");
+      const fallback = preflight.fallback_used ? `\n⚠ 首选${modeLabel(preflight.preferred_mode)}不可用，已自动回退到${modeLabel(selected)}。` : "";
+      const materialName = selectedMaterial() || "自定义";
+      const ok = window.confirm(
+        `确认开始${modeLabel(selected)}后台发送？${fallback}\n\n` +
+        `${connectionDescription(selected)}\n` +
+        `材料：${materialName} · 厚度 ${state.thickness} mm\n` +
+        `模式：${state.mode}\n` +
+        "预览文件已生成，确认设备已就位并遵守激光安全规程。\n" +
+        "注意：取消任务不是物理急停。"
+      );
+      if (!ok) {
+        addLog("发送已取消", "用户取消了发送确认", "info");
+        return;
+      }
+      state.sending = true;
+      state.jobId = "";
+      state.jobCounted = false;
+      showSendOverlay();
+      const result = await apiCall("/api/workflow", {
+        action: "confirm_send",
+        workflow_id: state.workflowId,
+        ...sendConnectionPayload(selected),
+      }, 120000);
+      const info = applyWorkflowStatus(result, { log: true });
+      if (info.status && !TERMINAL_STATUSES.has(info.status)) startStatusPolling();
+      else if (!info.status) {
+        state.sending = false;
+        hideSendOverlay();
+        addLog("发送响应异常", "后端没有返回可识别的任务状态", "err");
+      }
+    } catch (err) {
+      state.sending = false;
+      hideSendOverlay();
+      setConnected(false);
+      addLog("发送失败", String(err.message || err), "err");
+    } finally {
+      refreshActionButtons();
+    }
+  }
+
+  async function cancelSend() {
+    if (!state.workflowId || (!state.sending && !state.statusPolling)) {
+      addLog("取消任务", "当前无正在发送的后台任务", "warn");
+      return;
+    }
+    const ok = window.confirm("取消只会停止继续发送后续 G-code，不等同于物理急停。确认取消？");
+    if (!ok) return;
+    try {
+      const result = await apiCall("/api/workflow", {
+        action: "cancel",
+        workflow_id: state.workflowId,
+      }, 15000);
+      applyWorkflowStatus(result, { log: true });
+      stopStatusPolling();
+      state.sending = false;
+      hideSendOverlay();
+      addLog("取消已提交", "已请求停止后续 G-code；请通过设备急停处理物理危险", "ok");
+      refreshActionButtons();
+    } catch (err) {
+      addLog("取消失败", String(err.message || err), "err");
+    }
+  }
+
+  /* ---------- 材料库刷新触发点（spec 硬约束：初始加载 / 手动刷新 / focus / 可见 / BroadcastChannel） ---------- */
+  loadMaterialOptions();
+  window.addEventListener("focus", () => { loadMaterialOptions(); });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) loadMaterialOptions();
+  });
+  $("#mat-refresh-btn").addEventListener("click", () => {
+    addLog("材料库刷新", "正在重新加载后端材料库…", "info");
+    loadMaterialOptions();
+  });
+  try {
+    if (typeof BroadcastChannel === "function") {
+      const matChannel = new BroadcastChannel("laser-material-library-v1");
+      matChannel.addEventListener("message", (ev) => {
+        if (ev && ev.data && ev.data.type === "materials-updated") {
+          addLog("材料库已更新", "lab 页保存成功 · 正在同步最新材料库", "info");
+          loadMaterialOptions();
+        }
+      });
+    }
+  } catch (e) { /* BroadcastChannel 不可用：手动刷新 / focus / visibilitychange 兜底 */ }
+
+  /* ---------- 材料管理弹窗事件 ---------- */
+  $("#mat-add-btn").addEventListener("click", () => openMaterialModal(null));
+  $("#mat-modal-close").addEventListener("click", closeMaterialModal);
+  $("#mat-f-cancel").addEventListener("click", closeMaterialModal);
+  $("#mat-f-save").addEventListener("click", saveMaterialFromModal);
+  $("#mat-f-delete").addEventListener("click", () => { if (matModal.name) confirmDeleteMaterial(matModal.name); });
+  $("#mat-modal").addEventListener("click", (e) => { if (e.target === $("#mat-modal")) closeMaterialModal(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#mat-modal").hidden) closeMaterialModal();
+  });
+  $$("#mat-modal input").forEach(input => {
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") saveMaterialFromModal(); });
+  });
+
+  $("#btn-gen").addEventListener("click", generateGcode);
+  $("#btn-send").addEventListener("click", confirmSend);
+  $("#send-cancel").addEventListener("click", cancelSend);
+  $("#pv-nav-img").addEventListener("click", () => selectPreviewView("img"));
+  $("#pv-nav-gcode").addEventListener("click", () => selectPreviewView("gcode"));
+  $("#cta-start").addEventListener("click", () => {
+    document.querySelector("#workbench").scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => textInput.focus(), 700);
+  });
+  $("#cta-sim").addEventListener("click", () => runConnectionCheck());
+  $("#btn-clear-log").addEventListener("click", () => { logBody.innerHTML = ""; });
+
+  function refreshActionButtons() {
+    const btn = $("#btn-send");
+    btn.disabled = !(state.workflowId && !state.sending);
+  }
+
+  /* ---------- 任务操作 ---------- */
+  function opWorking(id, on) {
+    const el = $("#" + id);
+    el.classList.toggle("working", on);
+    el.disabled = on;
+  }
+  async function runConnectionCheck() {
+    opWorking("op-test-conn", true);
+    addLog("测试连接", "正在探测设备连接…", "info");
+    try {
+      const result = await apiCall("/api/connection/check", {
+        network_host: state.host || "127.0.0.1",
+        network_transport: "telnet",
+        network_timeout: 3,
+        include_detail: false,
+      }, 15000);
+      const connected = Boolean(result && result.network_connected);
+      setConnected(connected, result && result.summary ? String(result.summary) : "");
+      addLog("连接检查", connected ? "网络已连接" : "网络未连接", connected ? "ok" : "err");
+    } catch (err) {
+      setConnected(false);
+      addLog("连接检查失败", String(err.message || err), "err");
+    } finally {
+      opWorking("op-test-conn", false);
+    }
+  }
+  $("#op-test-conn").addEventListener("click", runConnectionCheck);
+  $("#op-save-cfg").addEventListener("click", () => {
+    const cfg = {
+      material: state.material, mode: state.mode,
+      power: state.power, speed: state.speed, thickness: state.thickness,
+      host: state.host,
+    };
+    try {
+      localStorage.setItem("laser-forge-cfg", JSON.stringify(cfg));
+      addLog("配置已保存", "材料 / 模式 / 参数 / 设备地址已写入本地 · 刷新后自动恢复", "ok");
+    } catch (e) {
+      addLog("配置保存失败", String(e), "err");
+    }
+  });
+  $("#op-status").addEventListener("click", async () => {
+    if (!state.workflowId) {
+      addLog("任务状态", "当前无进行中的任务", "warn");
+      return;
+    }
+    opWorking("op-status", true);
+    try {
+      const result = await apiCall("/api/workflow", {
+        action: "status",
+        workflow_id: state.workflowId,
+      }, 15000);
+      const wf = (result && result.workflow) || result || {};
+      const status = wf.status || (result && result.status) || "";
+      const speech = wf.speech || (result && result.speech) || "";
+      if (status) {
+        addLog("任务状态", `WORKFLOW ${state.workflowId} · ${status}${speech ? " · " + speech : ""}`, "info");
+        if (result) {
+          state.workflowResult = result;
+          if (result.web) renderArtifactLinks(result.web);
+          if (result.workflow && Array.isArray(result.workflow.feedback_events)) {
+            const latest = result.workflow.feedback_events.filter(Boolean).slice(-1)[0];
+            if (latest && latest.recommended_strategy) {
+              addLog("调参建议", `后端已推荐策略：${latest.recommended_strategy} · 可点「重生成」`, "info");
+            }
+          }
+        }
+        refreshActionButtons();
+      } else {
+        addLog("任务状态", "当前无进行中的任务", "warn");
+      }
+    } catch (err) {
+      addLog("状态查询失败", String(err.message || err), "err");
+    } finally {
+      opWorking("op-status", false);
+    }
+  });
+  $("#op-cancel").addEventListener("click", cancelSend);
+  $("#op-regen").addEventListener("click", async () => {
+    if (state.generating) return;
+    if (!state.workflowId) {
+      addLog("重新生成被拦截", "当前没有可关联的任务", "warn");
+      return;
+    }
+    const feedback = $("#feedback-text").value.trim();
+    if (feedback && feedback !== state.lastRecordedFeedback) {
+      opWorking("op-regen", true);
+      try {
+        const result = await apiCall("/api/workflow", {
+          action: "regenerate",
+          workflow_id: state.workflowId,
+          strategy: "recommended",
+          feedback_text: feedback,
+        }, 90000);
+        handleGenerateResult(result);
+        state.lastRecordedFeedback = feedback;
+        const speech = result && result.speech ? String(result.speech) : "新预览已生成";
+        addLog("调参重生成", speech, "ok");
+      } catch (err) {
+        addLog("重生成失败", String(err.message || err), "err");
+      } finally {
+        opWorking("op-regen", false);
+      }
+    } else {
+      addLog("重新生成", "按相同输入与参数重新计算路径", "info");
+      generateGcode();
+    }
+  });
+  async function recordFeedback() {
+    const box = $("#feedback-text");
+    const feedback = box.value.trim();
+    if (!feedback) {
+      addLog("反馈被拦截", "请先填写效果反馈", "warn");
+      box.focus();
+      return;
+    }
+    if (!state.workflowId) {
+      addLog("反馈被拦截", "当前没有可关联的任务", "warn");
+      return;
+    }
+    try {
+      const result = await apiCall("/api/workflow", {
+        action: "feedback",
+        workflow_id: state.workflowId,
+        feedback_text: feedback,
+      }, 15000);
+      const speech = (result && (result.speech || result.result)) || "反馈已记录";
+      addLog("反馈已记录", String(speech), "ok");
+      state.lastRecordedFeedback = feedback;
+      state.workflowResult = result;
+    } catch (err) {
+      addLog("反馈记录失败", String(err.message || err), "err");
+    }
+  }
+  $("#btn-feedback").addEventListener("click", recordFeedback);
+  $("#host-input").addEventListener("input", (e) => {
+    state.host = e.target.value.trim();
+    localStorage.setItem("laser-forge-host", state.host);
+  });
+
+  window.addEventListener("excalidraw-load-error", () => { window.excalidrawLoadFailed = true; });
+
+  /* ---------- 初始日志 ---------- */
+  addLog("工作台已加载", "LASER FORGE · 已接入真实后端 API（上传 / 生成 / 预览 / 连接 / 状态 / 发送）", "info");
+  addLog("工作台初始化", "材料库动态加载中 · 参数引擎就绪 · 预览引擎就绪", "info");
+  if (state.host) $("#host-input").value = state.host;
+
+  /* ---------- 首屏进场 ---------- */
+  window.addEventListener("load", () => {
+    resizePreview();
+    setTimeout(() => { $("#preview-label").textContent = "等待输入"; }, 100);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moss-xiaozhi-mcp"
+version = "0.1.0"
+description = "Voice-controlled laser engraving and local automation via Xiaozhi/MOSS assistant (MCP server)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "yjdaaa" }]
+keywords = ["mcp", "xiaozhi", "moss", "laser", "grbl", "voice-assistant"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+]
+dependencies = [
+    "mcp>=1.8.1",
+    "pydantic>=2.11.4",
+    "python-dotenv>=1.0.0",
+    "websockets>=11.0.3",
+]
+
+[project.optional-dependencies]
+laser = [
+    "Pillow>=10.0.0",
+    "fontTools>=4.0.0",
+    "numpy>=1.24.0",
+    "opencv-python>=4.10.0.24",
+    "pyserial>=3.5",
+    "requests>=2.31.0",
+]
+vision = [
+    "numpy>=1.24.0",
+    "onvif_zeep>=0.2.12",
+    "opencv-python>=4.10.0.24",
+    "getmac>=0.8.0",
+    "requests>=2.31.0",
+]
+desktop = [
+    "pyautogui>=0.9.54",
+]
+ha = [
+    "requests>=2.31.0",
+]
+dev = [
+    "build>=1.2.2",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[project.scripts]
+moss-mcp = "moss_mcp.bridge:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps*", "core*", "tools*", "moss_mcp*"]
+
+[tool.setuptools.package-data]
+apps.laser_web = ["ui/**/*"]
+apps.excalidraw_lab = ["web/**/*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -1,0 +1,57 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+node_modules/
+.env
+captures/
+.DS_Store
+
+# 默认激光雕刻输出目录（core/laser_runtime/config.py 的 DEFAULT_ENGRAVING_DIR）
+/generated/
+/out/
+/generated_images/
+test.py
+venv/
+moss_550W/
+laser_inputs/
+
+# 统一运行时数据目录（雕刻记录、任务、校准、上传、材料库等）
+.runtime/
+
+# Local test and browser artifacts
+/.playwright-mcp/
+/.tmp-e2e-acceptance/
+/.tmp-test/
+/apps/excalidraw_lab/web/dist/
+/apps/excalidraw_lab/ui-preview/dist/
+/apps/laser_web/ui/node_modules/
+/apps/excalidraw_lab/web/node_modules/
+/apps/excalidraw_lab/ui-preview/node_modules/
+*.excalidraw.json
+*.gcode
+*.nc
+*.log
+
+# Local editor/tool state
+.vscode/
+.workflow/
+.agents/
+.claude/
+.codex/
+.opencode/
+.trellis/
+PROJECT_PROMPT.md
+opencode.json
+
+# Production Android app local/generated state
+/android/laser-native-app/.gradle/
+/android/laser-native-app/.kotlin/
+/android/laser-native-app/**/build/
+/android/laser-native-app/local.properties
+/android/laser-native-app/*.jks
+/android/laser-native-app/*.keystore
+/android/laser-native-app/keystore.properties
+/android/laser-native-app/signing.properties
