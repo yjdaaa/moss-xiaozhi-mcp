@@ -68,8 +68,8 @@ where = ["."]
 include = ["apps*", "core*", "tools*", "moss_mcp*"]
 
 [tool.setuptools.package-data]
-apps.laser_web = ["ui/**/*"]
-apps.excalidraw_lab = ["web/**/*"]
+"apps.laser_web" = ["ui/**/*"]
+"apps.excalidraw_lab" = ["web/**/*"]
 
 [tool.setuptools]
 include-package-data = true
