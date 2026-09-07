@@ -13,10 +13,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e ".[dev,laser,desktop]"
-      - run: sudo apt-get update
-      - run: sudo apt-get install -y xvfb
-      - run: xvfb-run -a python -m unittest discover -s tests
+      - run: python -m pip install -e ".[dev,laser]"
+      - run: python -m unittest discover -s tests
       - run: python -m build --wheel
       - run: python -c "import glob, zipfile; wheel = glob.glob('dist/*.whl')[0]; names = zipfile.ZipFile(wheel).namelist(); assert any(name.endswith('apps/laser_web/ui/index.html') for name in names), names"
 

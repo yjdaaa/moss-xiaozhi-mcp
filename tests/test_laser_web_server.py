@@ -793,6 +793,11 @@ class LaserWebServerTests(unittest.TestCase):
         self.assertIn("材料参数与测试矩阵 Lab", html)
         self.assertIn("新增材料", html)
         self.assertIn("复制一套参数", html)
+        self.assertIn("保存为新版本", html)
+        self.assertIn("导出 JSON", html)
+        self.assertIn("导入 JSON", html)
+        self.assertIn('id="editorEvidenceBrand"', html)
+        self.assertIn('id="editorMachineProfile"', html)
         self.assertIn("删除当前参数", html)
         self.assertIn("从最近任务保存", html)
         self.assertIn("生成测试矩阵预览", html)
@@ -895,6 +900,73 @@ class LaserWebServerTests(unittest.TestCase):
             "测试软卡", 1, "engrave", "outline", params_file=str(params_file)
         )
         self.assertFalse(recommendation["success"], recommendation)
+
+    def test_material_lab_manage_supports_metadata_versions_and_import_export(self):
+        temp_dir = Path(self.make_temp_dir())
+        params_file = temp_dir / "materials.json"
+
+        first = laser_web_server.material_lab_manage_from_payload(
+            {
+                "action": "save",
+                "material": "Web 版本材料",
+                "aliases": ["测试别名"],
+                "thickness_mm": 3,
+                "laser_mode": "engrave",
+                "engraving_mode": "raster",
+                "laser_max_power": 300,
+                "feed_rate": 1200,
+                "machine_profile_id": "machine-web",
+                "confidence": "experimental",
+                "evidence": {
+                    "material_brand": "品牌 Web",
+                    "lens": "50mm",
+                    "tested_at": "2026-09-06",
+                    "laser_power_w": "5",
+                },
+            },
+            params_file=params_file,
+        )
+        second = laser_web_server.material_lab_manage_from_payload(
+            {
+                "action": "save",
+                "material": "Web 版本材料",
+                "aliases": ["测试别名"],
+                "thickness_mm": 3,
+                "laser_mode": "engrave",
+                "engraving_mode": "raster",
+                "laser_max_power": 350,
+                "feed_rate": 1000,
+                "machine_profile_id": "machine-web",
+                "confidence": "verified",
+                "version_mode": "new_version",
+                "evidence": {"verified_by_user": True},
+            },
+            params_file=params_file,
+        )
+        exported = laser_web_server.material_lab_manage_from_payload(
+            {"action": "export"},
+            params_file=params_file,
+        )
+        imported_file = temp_dir / "imported.json"
+        imported = laser_web_server.material_lab_manage_from_payload(
+            {
+                "action": "import",
+                "library_json": json.dumps(exported["result"]["library"], ensure_ascii=False),
+                "import_mode": "merge",
+            },
+            params_file=imported_file,
+        )
+
+        self.assertTrue(first["success"], first)
+        self.assertTrue(second["success"], second)
+        self.assertEqual(second["result"]["revision"], 2)
+        current = second["result"]["materials"]["Web 版本材料"]["thicknesses"]["3"]["engrave"]["raster"]
+        self.assertEqual(current["confidence"], "verified")
+        self.assertEqual(current["evidence"]["material_brand"], "品牌 Web")
+        self.assertEqual(len(current["history"]), 1)
+        self.assertTrue(exported["success"], exported)
+        self.assertTrue(imported["success"], imported)
+        self.assertIn("Web 版本材料", imported["result"]["materials"])
 
     def test_material_lab_recent_params_uses_latest_workflow_with_resolved_params(self):
         workflows_dir = Path(self.make_temp_dir())
@@ -1998,6 +2070,10 @@ class LaserWebServerTests(unittest.TestCase):
         self.assertIn('id="material-grid"', html)
         self.assertIn("selectMaterial", html)
         self.assertIn('id="draw-material"', html)
+        self.assertIn('id="workbench-reset-size"', html)
+        self.assertIn('class="console-resize-handle console-resize-corner"', html)
+        self.assertIn("laser-forge-workbench-size-v1", html)
+        self.assertIn("syncWorkbenchResponsiveSize", html)
         # 材料库已接入后端动态下发：/api/ui/material-options + BroadcastChannel 刷新协议。
         self.assertIn("/api/ui/material-options", html)
         self.assertIn("laser-material-library-v1", html)

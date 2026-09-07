@@ -15,7 +15,7 @@ MCP_ENDPOINT=wss://api.xiaozhi.me/mcp/?token=<your-token>
 
 ## 2. 启动 MCP 连接
 
-Windows 可运行 `scripts/start_windows.bat`；脚本会同时启动 MCP 连接、本机 Web 文字输入页，并自动打开默认浏览器。手动只启动 MCP 时执行：
+Windows 可运行 `scripts/start.bat`；脚本会同时启动 MCP 连接、本机 Web 文字输入页，并自动打开默认浏览器。手动只启动 MCP 时执行：
 
 ```bash
 python -m moss_mcp.bridge moss_mcp.server
@@ -31,16 +31,16 @@ python -m moss_mcp.bridge moss_mcp.server
 
 ## 4. 本机 Web 文字输入
 
-`scripts/start_windows.bat` 会默认启动本机网页入口并打开浏览器。如果要单独手动启动 Web 页，可以在项目根目录执行：
+`scripts/start.bat` 会默认启动本机网页入口并打开浏览器。如果要单独手动启动 Web 页，可以在项目根目录执行：
 
 ```bash
 python -m moss_mcp.web_server
 ```
 
-Windows 也可以双击 `scripts/start_web.bat` 单独启动 Web 页；它不会启动 MCP bridge。需要指定端口或不自动打开浏览器时，可以执行：
+如需只启动 Web 页，可以在项目根目录执行：
 
 ```powershell
-scripts\start_web.bat -Port 8767 -NoBrowser
+python -m moss_mcp.web_server --port 8767
 ```
 
 默认访问 `http://127.0.0.1:8766/`。页面里输入文字、材料、厚度、雕刻/切割模式和网络设备信息后，先点“生成预览”。生成步骤只创建文字任务、预览图和 G-code，不连接激光机。

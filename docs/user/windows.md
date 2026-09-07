@@ -16,7 +16,7 @@
 
 #### 方法一：双击运行（推荐）
 
-1. 双击 `scripts/start_windows.bat` 文件
+1. 双击 `scripts/start.bat` 文件
 2. 等待脚本自动完成环境设置
 3. 看到 "环境设置完成" 提示
 
@@ -28,7 +28,7 @@
 cd C:\path\to\moss-xiaozhi-mcp-main
 
 # 运行设置脚本
-scripts/start_windows.bat
+scripts/start.bat
 ```
 
 ### 步骤 2: 配置环境变量
@@ -60,7 +60,7 @@ HA_AUTH_TOKEN=<ha-token>
 
 #### 方法一：双击启动（推荐）
 
-双击 `scripts/start_windows.bat` 文件即可自动启动项目，并会同时启动本机 Web 文字输入页、打开默认浏览器。
+双击 `scripts/start.bat` 文件即可自动启动项目，并会同时启动 MCP 连接、本机 Web 文字输入页、打开默认浏览器。
 
 #### 方法二：命令行启动
 
@@ -90,13 +90,13 @@ python -m moss_mcp.bridge moss_mcp.server
 
 ```cmd
 # 快速启动
-scripts/start_windows.bat
+scripts/start.bat
 
 # 或手动运行
 python -m moss_mcp.bridge moss_mcp.server
 ```
 
-`scripts/start_windows.bat` 会默认打开 `http://127.0.0.1:8766/`。如果 `.env` 配置了 `LASER_WEB_HOST` 或 `LASER_WEB_PORT`，脚本会按配置启动 Web 页；绑定 `0.0.0.0` 时本机浏览器仍打开 `127.0.0.1`。
+`scripts/start.bat` 会默认打开 `http://127.0.0.1:8766/`。如果 `.env` 配置了 `LASER_WEB_HOST` 或 `LASER_WEB_PORT`，脚本会按配置启动 Web 页；绑定 `0.0.0.0` 时本机浏览器仍打开 `127.0.0.1`。
 
 ### 退出环境
 
@@ -178,7 +178,7 @@ python -c "import websockets, mcp, pydantic; print('core dependencies ok')"
 moss-xiaozhi-mcp-main/
 ├── .venv/                  # 本机虚拟环境（不提交）
 │   └── Scripts/            # Windows 激活脚本
-├── scripts/start_windows.bat # 快速启动脚本
+├── scripts/start.bat         # MCP + Web 一键启动脚本
 ├── pyproject.toml          # 依赖和可选功能组
 ├── moss_mcp/bridge.py      # WebSocket/stdin/stdout 桥接入口
 ├── moss_mcp/server.py      # 本地 MCP 工具注册入口
@@ -201,10 +201,10 @@ moss-xiaozhi-mcp-main/
 
 ```cmd
 # 使用快速启动脚本
-scripts/start_windows.bat
+scripts/start.bat
 
 # 或创建桌面快捷方式
-# 右键 scripts/start_windows.bat → "发送到" → "桌面快捷方式"
+# 右键 scripts/start.bat → "发送到" → "桌面快捷方式"
 ```
 
 ## 🔒 安全注意事项

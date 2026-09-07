@@ -98,10 +98,10 @@ python -m moss_mcp.bridge moss_mcp.server
 Windows 用户也可以运行：
 
 ```bat
-scripts\start_windows.bat
+scripts\start.bat
 ```
 
-该脚本会创建或复用虚拟环境，检查依赖，启动本机 Web 页面，然后启动 MCP 桥接。
+该脚本会创建或复用虚拟环境，检查依赖，启动本机 Web 页面，然后启动 MCP 桥接。支持 `-SkipInstall`、`-NoBrowser`、`-Host`、`-Port` 和 `-VenvDir` 参数。
 
 ### 3. 打开本机 Web 页面
 
@@ -117,7 +117,7 @@ python -m moss_mcp.web_server
 python -m moss_mcp.web_server --host 127.0.0.1 --port 8767
 ```
 
-Windows 只启动 Web 页面时运行 `scripts\start_web.bat`；该脚本支持 `-SkipInstall`、`-NoBrowser`、`-Host` 和 `-Port` 参数。
+Windows 启动脚本会同时运行 Web 页面和 MCP 桥接；如果只需要 Web 页面，可直接执行上面的 `python -m moss_mcp.web_server` 命令。
 
 页面中的“生成预览”只准备文字任务、预览图和 G-code；确认材料、厚度、功率、速度、次数和设备信息后，才可进入网络发送流程。不要把 Web 页面绑定到公网地址。
 

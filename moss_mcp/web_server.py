@@ -2026,6 +2026,9 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
       <div class="button-row">
         <button class="secondary" type="button" id="newMaterial">新增材料</button>
         <button class="secondary" type="button" id="saveRecent">从最近任务保存</button>
+        <button class="secondary" type="button" id="exportLibrary">导出 JSON</button>
+        <button class="secondary" type="button" id="importLibrary">导入 JSON</button>
+        <input id="importFile" type="file" accept=".json,application/json" hidden>
       </div>
       <div class="material-list" id="materialList"></div>
     </section>
@@ -2049,6 +2052,35 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
         </label>
         <label>参数来源
           <input id="editorSource" placeholder="manual / calibration / task">
+        </label>
+      </div>
+      <div class="grid2">
+        <label>机器配置 ID
+          <input id="editorMachineProfile" placeholder="例如 yisu-v1-100x100">
+        </label>
+        <label>可信度
+          <select id="editorConfidence">
+            <option value="experimental">实验中</option>
+            <option value="estimated">估算</option>
+            <option value="library">参考库</option>
+            <option value="verified">已验证</option>
+          </select>
+        </label>
+      </div>
+      <div class="grid2">
+        <label>材料品牌 / 批次
+          <input id="editorEvidenceBrand" placeholder="可选，例如品牌或批次">
+        </label>
+        <label>镜头 / 焦距
+          <input id="editorEvidenceLens" placeholder="可选，例如 50mm">
+        </label>
+      </div>
+      <div class="grid2">
+        <label>测试日期
+          <input id="editorEvidenceTestedAt" type="date">
+        </label>
+        <label>激光功率 W
+          <input id="editorEvidencePowerW" type="number" min="0" step="0.1">
         </label>
       </div>
       <div class="mode-tabs" id="modeTabs"></div>
@@ -2082,6 +2114,7 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
       </label>
       <div class="button-row">
         <button type="button" id="saveParams">保存参数</button>
+        <button class="secondary" type="button" id="saveNewVersion">保存为新版本</button>
         <button class="secondary" type="button" id="copyParams">复制一套参数</button>
         <button class="warning" type="button" id="deleteParams">删除当前参数</button>
       </div>
@@ -2174,6 +2207,12 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
       editorAliases: document.getElementById("editorAliases"),
       thicknessSelect: document.getElementById("thicknessSelect"),
       editorSource: document.getElementById("editorSource"),
+      editorMachineProfile: document.getElementById("editorMachineProfile"),
+      editorConfidence: document.getElementById("editorConfidence"),
+      editorEvidenceBrand: document.getElementById("editorEvidenceBrand"),
+      editorEvidenceLens: document.getElementById("editorEvidenceLens"),
+      editorEvidenceTestedAt: document.getElementById("editorEvidenceTestedAt"),
+      editorEvidencePowerW: document.getElementById("editorEvidencePowerW"),
       modeTabs: document.getElementById("modeTabs"),
       editorStatus: document.getElementById("editorStatus"),
       matrixModeSummary: document.getElementById("matrixModeSummary"),
@@ -2202,7 +2241,11 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
       bestSummary: document.getElementById("bestSummary"),
       newMaterial: document.getElementById("newMaterial"),
       saveRecent: document.getElementById("saveRecent"),
+      exportLibrary: document.getElementById("exportLibrary"),
+      importLibrary: document.getElementById("importLibrary"),
+      importFile: document.getElementById("importFile"),
       saveParams: document.getElementById("saveParams"),
+      saveNewVersion: document.getElementById("saveNewVersion"),
       copyParams: document.getElementById("copyParams"),
       deleteParams: document.getElementById("deleteParams"),
       generateMatrix: document.getElementById("generateMatrix"),
@@ -2286,6 +2329,16 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
 
     function editorPayload(overrides = {}) {
       const mode = overrides.mode || currentMode() || modeDescriptor();
+      const evidence = {};
+      const evidenceValues = {
+        material_brand: els.editorEvidenceBrand.value.trim(),
+        lens: els.editorEvidenceLens.value.trim(),
+        tested_at: els.editorEvidenceTestedAt.value,
+        laser_power_w: els.editorEvidencePowerW.value.trim(),
+      };
+      for (const [key, value] of Object.entries(evidenceValues)) {
+        if (value) evidence[key] = value;
+      }
       return {
         action: "save",
         material: overrides.material || els.editorMaterial.value.trim(),
@@ -2295,6 +2348,11 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
         engraving_mode: mode.laserMode === "cut" ? "" : mode.strategy,
         ...editorParams(),
         notes: document.getElementById("notes").value.trim(),
+        source: els.editorSource.value.trim() || "manual",
+        machine_profile_id: els.editorMachineProfile.value.trim() || "yisu-v1-100x100",
+        confidence: els.editorConfidence.value || "experimental",
+        evidence,
+        version_mode: overrides.version_mode || "update",
       };
     }
 
@@ -2329,6 +2387,13 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
       }
       document.getElementById("notes").value = params.notes || "";
       els.editorSource.value = params.source || "";
+      els.editorMachineProfile.value = params.machine_profile_id || "yisu-v1-100x100";
+      els.editorConfidence.value = params.confidence || "library";
+      const evidence = params.evidence && typeof params.evidence === "object" ? params.evidence : {};
+      els.editorEvidenceBrand.value = evidence.material_brand || "";
+      els.editorEvidenceLens.value = evidence.lens || "";
+      els.editorEvidenceTestedAt.value = evidence.tested_at || "";
+      els.editorEvidencePowerW.value = evidence.laser_power_w || "";
     }
 
     function currentMode() {
@@ -2873,6 +2938,63 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
       await saveMaterialPayload(editorPayload(), "参数已保存到材料库。左侧列表和当前页面数据已同步更新。");
     }
 
+    async function saveCurrentAsNewVersion() {
+      await saveMaterialPayload(
+        editorPayload({ version_mode: "new_version" }),
+        "新版本已保存，旧版本已保留在 history 中。"
+      );
+    }
+
+    async function exportLibrary() {
+      try {
+        const response = await fetch("/api/material-lab/export", {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.result || "导出失败");
+        const library = result.result?.library;
+        const blob = new Blob([JSON.stringify(library, null, 2)], { type: "application/json;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "laser-material-library.json";
+        link.click();
+        URL.revokeObjectURL(link.href);
+        setStatus(els.editorStatus, "材料库 JSON 已导出。", "good");
+      } catch (error) {
+        setStatus(els.editorStatus, `导出失败：${error.message || error}`, "warn");
+      }
+    }
+
+    async function importLibraryFile(file) {
+      if (!file) return;
+      const importMode = (window.prompt("导入方式：merge 合并，replace 替换", "merge") || "").trim().toLowerCase();
+      if (!["merge", "replace"].includes(importMode)) {
+        setStatus(els.editorStatus, "已取消导入。", "warn");
+        return;
+      }
+      if (importMode === "replace" && !window.confirm("替换会覆盖当前材料库文件，确定继续吗？")) return;
+      try {
+        const libraryJson = await file.text();
+        const result = await postJson("/api/material-lab/manage", {
+          action: "import",
+          library_json: libraryJson,
+          import_mode: importMode,
+        });
+        if (!result.success) throw new Error(result.result || "导入失败");
+        replaceMaterials(result.result?.materials || {});
+        renderMaterialList();
+        const first = materialNames()[0] || "";
+        if (first) selectMaterial(first);
+        setStatus(els.editorStatus, `材料库已${importMode === "replace" ? "替换" : "合并"}导入。`, "good");
+        notifyMaterialsUpdated();
+      } catch (error) {
+        setStatus(els.editorStatus, `导入失败：${error.message || error}`, "warn");
+      } finally {
+        els.importFile.value = "";
+      }
+    }
+
     function newMaterialDraft() {
       const material = window.prompt("新材料名称：", "");
       if (!material?.trim()) return;
@@ -3013,7 +3135,11 @@ MATERIAL_LAB_HTML = r"""<!doctype html>
     els.saveBest.addEventListener("click", saveBestCell);
     els.newMaterial.addEventListener("click", newMaterialDraft);
     els.saveRecent.addEventListener("click", saveFromRecentTask);
+    els.exportLibrary.addEventListener("click", exportLibrary);
+    els.importLibrary.addEventListener("click", () => els.importFile.click());
+    els.importFile.addEventListener("change", () => importLibraryFile(els.importFile.files?.[0]));
     els.saveParams.addEventListener("click", saveCurrentParams);
+    els.saveNewVersion.addEventListener("click", saveCurrentAsNewVersion);
     els.copyParams.addEventListener("click", copyCurrentParams);
     els.deleteParams.addEventListener("click", deleteCurrentParams);
     for (const id of [
@@ -3058,6 +3184,7 @@ def material_lab_snapshot(params_file=None):
     return {
         "version": data.get("version", 1) if isinstance(data, dict) else 1,
         "source_path": str(source_path),
+        "backup_path": f"{source_path}.bak",
         "materials": materials,
         "error": error,
         "prototype": False,
@@ -3203,8 +3330,33 @@ def _material_lab_aliases(payload):
 
 def material_lab_manage_from_payload(payload, params_file=None):
     action = _optional_text(payload, "action").lower()
-    if action not in {"save", "delete"}:
-        return _build_failure("action 必须是 save 或 delete")
+    if action not in {"save", "delete", "import", "export"}:
+        return _build_failure("action 必须是 save、delete、import 或 export")
+
+    target_file = str(params_file or laser_material_calibration_tool.MATERIAL_PARAMS_FILE)
+    if action == "export":
+        return laser_material_calibration_tool.material_params(
+            action="export",
+            params_file=target_file,
+        )
+    if action == "import":
+        library_json = payload.get("library_json") or payload.get("params_json") or ""
+        result = laser_material_calibration_tool.material_params(
+            action="import",
+            library_json=library_json,
+            import_mode=_optional_text(payload, "import_mode", "merge") or "merge",
+            params_file=target_file,
+        )
+        if not result.get("success"):
+            return result
+        snapshot = material_lab_snapshot(params_file=target_file)
+        return _build_success(
+            {
+                **(result.get("result") or {}),
+                "materials": snapshot["materials"],
+                "backup_path": snapshot["backup_path"],
+            }
+        )
 
     material, error = _required_text(payload, "material")
     if error:
@@ -3214,8 +3366,6 @@ def material_lab_manage_from_payload(payload, params_file=None):
         return _build_failure(error)
     laser_mode = _optional_text(payload, "laser_mode", "engrave") or "engrave"
     engraving_mode = _optional_text(payload, "engraving_mode", "raster") or "raster"
-    target_file = str(params_file or laser_material_calibration_tool.MATERIAL_PARAMS_FILE)
-
     if action == "delete":
         if not _coerce_bool(payload, "confirmed", False):
             return _build_failure("删除当前参数需要 confirmed=true")
@@ -3246,22 +3396,20 @@ def material_lab_manage_from_payload(payload, params_file=None):
             passes=payload.get("passes", 1),
             aliases_json=json.dumps(aliases, ensure_ascii=False),
             notes=_optional_text(payload, "notes"),
+            source=_optional_text(payload, "source", "manual") or "manual",
+            machine_profile_id=_optional_text(
+                payload,
+                "machine_profile_id",
+                laser_material_calibration_tool.DEFAULT_MACHINE_PROFILE_ID,
+            )
+            or laser_material_calibration_tool.DEFAULT_MACHINE_PROFILE_ID,
+            confidence=_optional_text(payload, "confidence"),
+            evidence_json=json.dumps(payload.get("evidence") or {}, ensure_ascii=False),
+            version_mode=_optional_text(payload, "version_mode", "update") or "update",
             params_file=target_file,
         )
     if not result.get("success"):
         return result
-
-    if action == "save":
-        saved_material = str((result.get("result") or {}).get("material") or material)
-        data, error = laser_material_calibration_tool._load_material_params(target_file)
-        if error:
-            return _build_failure(error)
-        saved_entry = data.get("materials", {}).get(saved_material)
-        if isinstance(saved_entry, dict):
-            saved_entry["aliases"] = aliases
-            error = laser_material_calibration_tool._save_material_params(data, target_file)
-            if error:
-                return _build_failure(error)
 
     snapshot = material_lab_snapshot(params_file=target_file)
     return _build_success({**(result.get("result") or {}), "materials": snapshot["materials"]})
@@ -3537,6 +3685,14 @@ class LaserWebRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/material-lab":
             self._send_html(render_material_lab_html())
+            return
+        if parsed.path == "/api/material-lab/export":
+            self._send_json(
+                laser_material_calibration_tool.material_params(
+                    action="export",
+                    params_file=laser_material_calibration_tool.MATERIAL_PARAMS_FILE,
+                )
+            )
             return
         if parsed.path == "/api/health":
             self._send_json(_build_success({"status": "ok"}))

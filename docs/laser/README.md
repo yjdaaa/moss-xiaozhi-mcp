@@ -54,3 +54,9 @@
 ## 材料参数维护规则
 
 本机实测材料参数的唯一维护入口是 `.lasergrbl_materials.json`，或 `.env` 中 `LASER_MATERIAL_PARAMS_FILE` 指向的私有文件。`tools/laser_material_calibration_tool.py` 里的默认材料参数只作为内置兜底；`.lasergrbl_calibrations/` 只保留测试矩阵历史，不作为手动维护的推荐参数来源。完成测试矩阵后，用户说“第 N 格最好”时使用 `select_calibration_cell_tool` 将该格参数写入材料库。
+
+材料库当前继续使用 JSON，不嵌入 MeerK40t，也不要求 SQLite、MySQL、PostgreSQL、SQLAlchemy 或 Redis。材料读写经过 `MaterialLibraryRepository` 接口和 `JsonMaterialRepository` 实现，未来可以替换底层存储而不改变 MCP、Web 和工作流调用方。
+
+每套材料操作参数可以记录机器配置 ID、参数来源、可信度和实测证据（品牌/批次、镜头、激光功率、测试日期、人工验证）。普通保存更新当前版本；`version_mode=new_version` 会保留旧参数到 `history` 并递增 `revision`。材料库支持 JSON 导入（`merge` / `replace`）和导出，写入前会生成同名 `.bak` 备份。
+
+Web `/material-lab` 提供这些管理能力，但“应用参数”只影响当前任务或预览参数，不代表发送设备；生成、预览、导入导出和参数管理不会绕过现有 `confirmed` 发送门禁。切换材料参数后，正式任务仍必须重新生成预览并重新确认。

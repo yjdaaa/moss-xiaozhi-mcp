@@ -226,6 +226,89 @@ class LaserCalibrationToolTests(unittest.TestCase):
         self.assertEqual(params["feed_rate"], 456)
         self.assertEqual(params["passes"], 3)
 
+    def test_material_params_new_version_preserves_previous_operation_and_evidence(self):
+        params_file = os.path.join(self.make_temp_dir(), "materials.json")
+
+        first = laser_material_calibration_tool.material_params(
+            action="save",
+            material="版本测试木材",
+            thickness_mm=3,
+            laser_mode="engrave",
+            engraving_mode="raster",
+            laser_max_power=300,
+            feed_rate=1200,
+            machine_profile_id="machine-a",
+            confidence="experimental",
+            evidence_json=json.dumps({"material_brand": "品牌 A", "tested_at": "2026-09-01"}),
+            params_file=params_file,
+        )
+        second = laser_material_calibration_tool.material_params(
+            action="save",
+            material="版本测试木材",
+            thickness_mm=3,
+            laser_mode="engrave",
+            engraving_mode="raster",
+            laser_max_power=360,
+            feed_rate=1000,
+            machine_profile_id="machine-a",
+            confidence="verified",
+            evidence_json=json.dumps({"verified_by_user": True}),
+            version_mode="new_version",
+            params_file=params_file,
+        )
+
+        self.assertTrue(first["success"], first)
+        self.assertTrue(second["success"], second)
+        self.assertEqual(second["result"]["revision"], 2)
+        recommendation = laser_material_calibration_tool.recommend_laser_params(
+            "版本测试木材",
+            3,
+            "engrave",
+            "raster",
+            params_file=params_file,
+        )
+        self.assertTrue(recommendation["success"], recommendation)
+        result = recommendation["result"]
+        self.assertEqual(result["params"]["laser_max_power"], 360)
+        self.assertEqual(result["revision"], 2)
+        self.assertEqual(result["confidence"], "verified")
+        self.assertEqual(result["evidence"]["material_brand"], "品牌 A")
+        self.assertTrue(result["evidence"]["verified_by_user"])
+        self.assertEqual(result["history_count"], 1)
+
+    def test_material_params_export_and_import_merge(self):
+        source_file = os.path.join(self.make_temp_dir(), "source.json")
+        target_file = os.path.join(self.make_temp_dir(), "target.json")
+        saved = laser_material_calibration_tool.material_params(
+            action="save",
+            material="导出木材",
+            thickness_mm=3,
+            laser_mode="engrave",
+            engraving_mode="raster",
+            laser_max_power=333,
+            feed_rate=1111,
+            params_file=source_file,
+        )
+        exported = laser_material_calibration_tool.material_params(
+            action="export",
+            params_file=source_file,
+        )
+        imported = laser_material_calibration_tool.material_params(
+            action="import",
+            library_json=json.dumps(exported["result"]["library"], ensure_ascii=False),
+            import_mode="merge",
+            params_file=target_file,
+        )
+
+        self.assertTrue(saved["success"], saved)
+        self.assertTrue(exported["success"], exported)
+        self.assertTrue(imported["success"], imported)
+        recommendation = laser_material_calibration_tool.recommend_laser_params(
+            "导出木材", 3, "engrave", "raster", params_file=target_file
+        )
+        self.assertTrue(recommendation["success"], recommendation)
+        self.assertEqual(recommendation["result"]["params"]["laser_max_power"], 333)
+
     def test_run_calibration_grid_generates_file_without_confirmation(self):
         temp_dir = self.make_temp_dir()
         output_file = os.path.join(temp_dir, "grid.gcode")

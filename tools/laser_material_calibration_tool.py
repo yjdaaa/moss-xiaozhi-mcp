@@ -6,6 +6,8 @@ import uuid
 from core.laser_runtime.config import get_laser_settings
 from core.laser_runtime.models import file_sha256
 from core import laser_execution
+from core.ai_laser_gcode.material_repository import JsonMaterialRepository, MaterialRepositoryError
+from core.ai_laser_gcode.material_library import DEFAULT_MACHINE_PROFILE_ID
 from tools import laser_grbl_tool, laser_network_grbl_tool
 
 
@@ -25,6 +27,17 @@ PARAMETER_KEYS = {
     "threshold",
     "passes",
 }
+MATERIAL_EVIDENCE_KEYS = {
+    "machine_name",
+    "laser_power_w",
+    "lens",
+    "material_brand",
+    "material_batch",
+    "tested_at",
+    "verified_by_user",
+    "notes",
+}
+VERSION_MODES = {"update", "new_version"}
 
 
 DEFAULT_MATERIAL_PARAMS = {
@@ -355,16 +368,11 @@ def _ensure_parent_dir(path):
 
 
 def _write_json_file(path, data):
-    _ensure_parent_dir(path)
-    tmp_file = path + ".tmp"
-    with open(tmp_file, "w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=2)
-    os.replace(tmp_file, path)
+    JsonMaterialRepository(path).save(data)
 
 
 def _read_json_file(path):
-    with open(path, "r", encoding="utf-8") as file:
-        return json.load(file)
+    return JsonMaterialRepository(path).load()
 
 
 def _merge_material_params(defaults, custom):
@@ -432,7 +440,7 @@ def _load_material_params(path=MATERIAL_PARAMS_FILE):
 
     try:
         custom = _read_json_file(path)
-    except (OSError, ValueError) as exc:
+    except MaterialRepositoryError as exc:
         return None, f"读取材料参数失败: {exc}"
 
     return _merge_material_params(defaults, custom), None
@@ -442,8 +450,8 @@ def _save_material_params(data, path=MATERIAL_PARAMS_FILE):
     try:
         _write_json_file(path, data)
         return None
-    except OSError as exc:
-        return f"保存材料参数失败: {exc}"
+    except MaterialRepositoryError as exc:
+        return str(exc)
 
 
 def _format_thickness_key(thickness_mm):
@@ -577,6 +585,45 @@ def _normalize_params(params, require_all=True):
     return normalized, None
 
 
+def _parse_evidence_json(evidence_json):
+    if not evidence_json:
+        return {}, None
+    try:
+        parsed = json.loads(evidence_json)
+    except (TypeError, ValueError) as exc:
+        return None, f"evidence_json 不是合法 JSON: {exc}"
+    if not isinstance(parsed, dict):
+        return None, "evidence_json 必须是对象"
+    evidence = {}
+    for key, value in parsed.items():
+        if key not in MATERIAL_EVIDENCE_KEYS:
+            continue
+        if key == "verified_by_user":
+            if isinstance(value, bool):
+                evidence[key] = value
+            else:
+                evidence[key] = str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+        else:
+            text = str(value or "").strip()
+            if text:
+                evidence[key] = text
+    return evidence, None
+
+
+def _version_snapshot(entry):
+    snapshot = _deepcopy_json(entry) if isinstance(entry, dict) else {}
+    snapshot.pop("history", None)
+    return snapshot
+
+
+def _positive_revision(value, default=1):
+    try:
+        revision = int(value)
+    except (TypeError, ValueError):
+        return default
+    return revision if revision > 0 else default
+
+
 def _find_params(data, material, thickness_mm, laser_mode, engraving_mode=""):
     mode, resolved_engraving_mode, error = _resolve_material_engraving_mode(laser_mode, engraving_mode)
     if error:
@@ -611,6 +658,7 @@ def _find_params(data, material, thickness_mm, laser_mode, engraving_mode=""):
             "can_send": True,
             "send_blocked_reason": "",
         }
+        result.update(_material_metadata(exact_params))
         if mode == "engrave":
             result["engraving_mode"] = resolved_engraving_mode
         return result, None
@@ -654,9 +702,26 @@ def _find_params(data, material, thickness_mm, laser_mode, engraving_mode=""):
         "can_send": True,
         "send_blocked_reason": "",
     }
+    result.update(_material_metadata(matched_params))
     if mode == "engrave":
         result["engraving_mode"] = resolved_engraving_mode
     return result, None
+
+
+def _material_metadata(params):
+    if not isinstance(params, dict):
+        return {}
+    result = {}
+    for key in ("machine_profile_id", "confidence", "source", "revision", "created_at", "updated_at"):
+        if key in params:
+            result[key] = params[key]
+    evidence = params.get("evidence")
+    if isinstance(evidence, dict):
+        result["evidence"] = _deepcopy_json(evidence)
+    history = params.get("history")
+    if isinstance(history, list):
+        result["history_count"] = len(history)
+    return result
 
 
 def recommend_laser_params(material, thickness_mm, laser_mode="engrave", engraving_mode="", params_file=MATERIAL_PARAMS_FILE):
@@ -691,6 +756,10 @@ def _save_params_entry(
     aliases=None,
     source="manual",
     notes="",
+    machine_profile_id="",
+    confidence="",
+    evidence=None,
+    version_mode="update",
     params_file=MATERIAL_PARAMS_FILE,
 ):
     data, error = _load_material_params(params_file)
@@ -712,23 +781,52 @@ def _save_params_entry(
     normalized, error = _normalize_params(params)
     if error:
         return None, error
-    normalized.update(
-        {
-            "source": source,
-            "updated_at": time.time(),
-        }
-    )
-    if notes:
-        normalized["notes"] = notes
+    version_mode = str(version_mode or "update").strip().lower()
+    if version_mode not in VERSION_MODES:
+        return None, "version_mode 必须是 update 或 new_version"
 
-    if aliases:
+    if aliases is not None:
         saved_aliases = entry.setdefault("aliases", [])
+        if not aliases:
+            saved_aliases.clear()
         for alias in aliases:
             alias = str(alias).strip()
             if alias and alias not in saved_aliases:
                 saved_aliases.append(alias)
 
     thickness_entry = entry.setdefault("thicknesses", {}).setdefault(thickness_key, {})
+    existing_operation = _params_for_mode(thickness_entry, mode, resolved_engraving_mode)
+    existing_operation = existing_operation if isinstance(existing_operation, dict) else {}
+    previous_revision = _positive_revision(existing_operation.get("revision"), 1)
+    history = existing_operation.get("history", [])
+    if not isinstance(history, list):
+        history = []
+    if version_mode == "new_version" and existing_operation:
+        history = [*_deepcopy_json(history), _version_snapshot(existing_operation)]
+        normalized["revision"] = previous_revision + 1
+        normalized["history"] = history
+    else:
+        normalized["revision"] = previous_revision
+        normalized["history"] = _deepcopy_json(history)
+    normalized.setdefault("created_at", existing_operation.get("created_at", time.time()))
+    normalized["updated_at"] = time.time()
+    normalized["source"] = str(source or existing_operation.get("source") or "manual")
+    normalized["machine_profile_id"] = str(
+        machine_profile_id or existing_operation.get("machine_profile_id") or DEFAULT_MACHINE_PROFILE_ID
+    )
+    normalized["confidence"] = str(confidence or existing_operation.get("confidence") or "experimental")
+    old_evidence = existing_operation.get("evidence")
+    if isinstance(old_evidence, dict):
+        merged_evidence = _deepcopy_json(old_evidence)
+        if isinstance(evidence, dict):
+            merged_evidence.update(_deepcopy_json(evidence))
+        evidence = merged_evidence
+    if isinstance(evidence, dict) and evidence:
+        normalized["evidence"] = _deepcopy_json(evidence)
+    if notes:
+        normalized["notes"] = notes
+    elif existing_operation.get("notes"):
+        normalized["notes"] = existing_operation["notes"]
     if mode == "engrave":
         existing = thickness_entry.get(mode)
         if _is_flat_params_entry(existing):
@@ -750,6 +848,8 @@ def _save_params_entry(
         "laser_mode": mode,
         "params": normalized,
         "params_file": params_file,
+        "revision": normalized["revision"],
+        "version_mode": version_mode,
     }
     if mode == "engrave":
         result["engraving_mode"] = resolved_engraving_mode
@@ -831,6 +931,13 @@ def material_params(
     passes=1,
     aliases_json="",
     notes="",
+    source="manual",
+    machine_profile_id=DEFAULT_MACHINE_PROFILE_ID,
+    confidence="",
+    evidence_json="",
+    version_mode="update",
+    library_json="",
+    import_mode="merge",
     params_file=MATERIAL_PARAMS_FILE,
 ):
     action = str(action or "list").strip().lower()
@@ -839,7 +946,56 @@ def material_params(
         return _build_failure(error)
 
     if action in ("list", "all"):
-        return _build_success({"params_file": params_file, "materials": data.get("materials", {})})
+        return _build_success(
+            {
+                "params_file": params_file,
+                "backup_file": f"{params_file}.bak",
+                "materials": data.get("materials", {}),
+            }
+        )
+
+    if action == "export":
+        return _build_success(
+            {
+                "params_file": params_file,
+                "library": _deepcopy_json(data),
+            }
+        )
+
+    if action == "import":
+        raw_library = library_json or params_json
+        try:
+            imported = json.loads(raw_library)
+        except (TypeError, ValueError) as exc:
+            return _build_failure(f"library_json 不是合法 JSON: {exc}")
+        if not isinstance(imported, dict) or imported.get("version") != 1:
+            return _build_failure("导入材料库格式不支持：需要 version=1 的 JSON 对象")
+        imported_materials = imported.get("materials")
+        if not isinstance(imported_materials, (dict, list)):
+            return _build_failure("导入材料库格式不对：materials 必须是对象或数组")
+        import_mode = str(import_mode or "merge").strip().lower()
+        if import_mode not in {"merge", "replace"}:
+            return _build_failure("import_mode 必须是 merge 或 replace")
+        if import_mode == "replace":
+            imported_data = _deepcopy_json(imported)
+            if isinstance(imported_materials, list):
+                return _build_failure("replace 只支持当前嵌套 materials 对象格式")
+            data = imported_data
+        else:
+            if isinstance(imported_materials, list):
+                return _build_failure("merge 只支持当前嵌套 materials 对象格式")
+            data = _merge_material_params(data, imported)
+        _normalize_material_param_schema(data)
+        error = _save_material_params(data, params_file)
+        if error:
+            return _build_failure(error)
+        return _build_success(
+            {
+                "params_file": params_file,
+                "import_mode": import_mode,
+                "materials": data.get("materials", {}),
+            }
+        )
 
     if action in ("get", "recommend"):
         recommendation, error = _find_params(data, material, thickness_mm, laser_mode, engraving_mode)
@@ -863,7 +1019,7 @@ def material_params(
         }
         raw_params.update(json_params)
 
-        aliases = []
+        aliases = None
         if aliases_json:
             try:
                 parsed_aliases = json.loads(aliases_json)
@@ -873,6 +1029,15 @@ def material_params(
                 return _build_failure("aliases_json 必须是数组")
             aliases = parsed_aliases
 
+        evidence, error = _parse_evidence_json(evidence_json)
+        if error:
+            return _build_failure(error)
+        if isinstance(json_params.get("evidence"), dict):
+            evidence = {**evidence, **json_params["evidence"]}
+        effective_machine_profile_id = json_params.get("machine_profile_id") or machine_profile_id
+        effective_confidence = json_params.get("confidence") or confidence
+        effective_version_mode = json_params.get("version_mode") or version_mode
+
         saved, error = _save_params_entry(
             material,
             thickness_mm,
@@ -880,8 +1045,12 @@ def material_params(
             engraving_mode,
             raw_params,
             aliases=aliases,
-            source="manual",
+            source=json_params.get("source", source or "manual"),
             notes=notes,
+            machine_profile_id=effective_machine_profile_id,
+            confidence=effective_confidence,
+            evidence=evidence,
+            version_mode=effective_version_mode,
             params_file=params_file,
         )
         if error:
@@ -939,7 +1108,7 @@ def material_params(
             result["engraving_mode"] = resolved_engraving_mode
         return _build_success(result)
 
-    return _build_failure("未知 action，支持: list / get / save / delete")
+    return _build_failure("未知 action，支持: list / get / save / delete / export / import")
 
 
 def _linspace_int(start, end, count):
@@ -1456,6 +1625,13 @@ def select_calibration_cell(
         params,
         source="calibration",
         notes=notes,
+        confidence="verified",
+        evidence={
+            "verified_by_user": True,
+            "tested_at": time.strftime("%Y-%m-%d"),
+            "notes": notes or f"测试矩阵第 {cell_number} 格",
+        },
+        version_mode="new_version",
         params_file=params_file,
     )
     if error:
@@ -1775,6 +1951,13 @@ def register_tool(mcp):
         passes: int = 1,
         aliases_json: str = "",
         notes: str = "",
+        source: str = "manual",
+        machine_profile_id: str = DEFAULT_MACHINE_PROFILE_ID,
+        confidence: str = "",
+        evidence_json: str = "",
+        version_mode: str = "update",
+        library_json: str = "",
+        import_mode: str = "merge",
     ) -> dict:
         """
         管理激光材料参数库。用于按材料、厚度、雕刻/切割模式保存或读取推荐参数。
@@ -1785,7 +1968,10 @@ def register_tool(mcp):
             get/recommend - 读取指定 material + thickness_mm + laser_mode + engraving_mode 的推荐参数
             save/upsert/set - 保存参数
             delete - 删除指定参数
+            export - 导出材料库 JSON
+            import - 导入材料库 JSON；import_mode=merge 或 replace
         params_json 可一次传入完整参数对象；单独字段会作为默认值并被 params_json 覆盖。
+        version_mode=new_version 时保留当前版本到 history，再写入新版本；默认 update 更新当前版本。
         """
         return material_params(
             action=action,
@@ -1803,6 +1989,13 @@ def register_tool(mcp):
             passes=passes,
             aliases_json=aliases_json,
             notes=notes,
+            source=source,
+            machine_profile_id=machine_profile_id,
+            confidence=confidence,
+            evidence_json=evidence_json,
+            version_mode=version_mode,
+            library_json=library_json,
+            import_mode=import_mode,
         )
 
     @mcp.tool()

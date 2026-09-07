@@ -394,9 +394,12 @@ a { color: inherit; text-decoration: none; }
 .reveal.in { opacity: 1; transform: none; }
 
 /* ---------- 工作台 ---------- */
-.console-wrap { perspective: 1600px; }
+.console-wrap { perspective: 1600px; width: 100%; max-width: 100%; }
 .console {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: min(100%, 720px);
   border: 1px solid var(--line);
   border-radius: 22px;
   background: linear-gradient(165deg, rgba(16,23,42,0.85), rgba(8,11,20,0.92));
@@ -407,6 +410,81 @@ a { color: inherit; text-decoration: none; }
   transition: transform .5s var(--ease-out);
   transform-style: preserve-3d;
 }
+.console.resizing { transition: none; user-select: none; }
+.console-scroll { position: relative; z-index: 2; }
+.console.has-custom-size > .console-scroll { height: 100%; overflow: auto; overflow-x: hidden; }
+.console-resize-handle {
+  position: absolute;
+  z-index: 8;
+  touch-action: none;
+  user-select: none;
+}
+.console-resize-right {
+  top: 22px; right: 0; bottom: 22px; width: 14px;
+  cursor: ew-resize;
+}
+.console-resize-left {
+  top: 22px; left: 0; bottom: 22px; width: 14px;
+  cursor: ew-resize;
+}
+.console-resize-bottom {
+  right: 22px; bottom: 0; left: 22px; height: 14px;
+  cursor: ns-resize;
+}
+.console-resize-corner {
+  right: 0; bottom: 0; width: 22px; height: 22px;
+  cursor: nwse-resize;
+}
+.console-resize-corner-left {
+  right: auto; left: 0;
+  cursor: nesw-resize;
+}
+.console-resize-left::after {
+  top: 12px; bottom: 12px; left: 3px; width: 1px;
+  background: var(--laser);
+  box-shadow: 0 0 10px var(--laser);
+}
+.console-resize-right::after,
+.console-resize-left::after,
+.console-resize-bottom::after,
+.console-resize-corner::after {
+  content: "";
+  position: absolute;
+  opacity: 0;
+  transition: opacity .2s, box-shadow .2s;
+}
+.console-resize-right::after {
+  top: 12px; right: 3px; bottom: 12px; width: 1px;
+  background: var(--laser);
+  box-shadow: 0 0 10px var(--laser);
+}
+.console-resize-bottom::after {
+  right: 12px; bottom: 3px; left: 12px; height: 1px;
+  background: var(--laser);
+  box-shadow: 0 0 10px var(--laser);
+}
+.console-resize-corner::after {
+  right: 4px; bottom: 4px; width: 10px; height: 10px;
+  border-right: 1px solid var(--laser);
+  border-bottom: 1px solid var(--laser);
+  box-shadow: 3px 3px 10px rgba(53,224,255,.75);
+}
+.console-resize-corner-left::after {
+  right: auto; left: 4px;
+  border-right: 0; border-left: 1px solid var(--laser);
+  box-shadow: -3px 3px 10px rgba(53,224,255,.75);
+}
+.console-resize-handle:hover::after,
+.console.resizing .console-resize-handle::after { opacity: .9; }
+.console-size-reset {
+  display: inline-grid; place-items: center;
+  width: 28px; height: 28px; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink-dim); background: rgba(10,14,26,.58);
+  transition: color .2s, border-color .2s, background .2s;
+}
+.console-size-reset:hover { color: var(--laser); border-color: var(--line-bright); background: rgba(53,224,255,.08); }
+.console-size-reset svg { width: 14px; height: 14px; }
 .console::before {
   content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
@@ -695,8 +773,28 @@ a { color: inherit; text-decoration: none; }
 .param-block { margin-bottom: 24px; }
 .param-slider-row { display: flex; align-items: center; gap: 14px; }
 .param-slider-row .val {
+  display: inline-flex; align-items: baseline; justify-content: flex-end;
   font-family: var(--font-mono); font-size: 15px; color: var(--laser);
-  min-width: 58px; text-align: right; letter-spacing: 0.06em;
+  min-width: 88px; text-align: right; letter-spacing: 0.06em;
+}
+.param-slider-row .val input {
+  width: 4.2ch; min-width: 0; padding: 1px 0;
+  border: 0; border-bottom: 1px solid transparent; border-radius: 0;
+  background: transparent; color: inherit; font: inherit;
+  letter-spacing: inherit; text-align: right; outline: none;
+  appearance: textfield; -moz-appearance: textfield;
+  transition: border-color .2s, box-shadow .2s, color .2s;
+}
+.param-slider-row .val input:focus {
+  border-bottom-color: var(--laser);
+  box-shadow: 0 3px 10px rgba(53,224,255,.24);
+}
+.param-slider-row .val input.invalid {
+  color: var(--gold); border-bottom-color: var(--gold);
+}
+.param-slider-row .val input::-webkit-outer-spin-button,
+.param-slider-row .val input::-webkit-inner-spin-button {
+  margin: 0; -webkit-appearance: none;
 }
 .param-slider-row .unit { font-size: 10px; color: var(--ink-faint); margin-left: 2px; }
 input[type=range] {
@@ -756,16 +854,6 @@ input[type=range]::-moz-range-thumb {
     linear-gradient(90deg, rgba(120,180,255,0.05) 1px, transparent 1px);
   background-size: 26px 26px;
 }
-.preview-stage .crosshair {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 26px; height: 26px; pointer-events: none; z-index: 2;
-}
-.preview-stage .crosshair::before, .preview-stage .crosshair::after {
-  content: ""; position: absolute; background: rgba(53,224,255,0.5);
-  box-shadow: 0 0 8px var(--laser);
-}
-.preview-stage .crosshair::before { left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
-.preview-stage .crosshair::after { top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%); }
 #preview-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 .preview-empty {
   position: absolute; inset: 0; z-index: 3;
@@ -1073,6 +1161,7 @@ footer {
 
 /* ---------- 响应式 ---------- */
 @media (max-width: 1020px) {
+  .console { width: 100%; min-width: 0; height: auto; }
   .console-body { grid-template-columns: 1fr; }
   .console-left { border-right: none; border-bottom: 1px solid var(--line); }
   .material-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -1150,7 +1239,7 @@ footer {
   </div>
   <div class="hero-side-stats">
     <div class="stat"><b id="stat-lines">0</b><span>G-code 行</span></div>
-    <div class="stat"><b id="stat-time">00:00</b><span>预估工时</span></div>
+    <div class="stat"><b id="stat-time">—</b><span>预计加工时长</span></div>
     <div class="stat"><b id="stat-jobs">0</b><span>任务完成</span></div>
   </div>
   <div class="hero-side-num"><i>●</i>&nbsp;FORGE&nbsp;·&nbsp;EST&nbsp;2026&nbsp;<i>●</i></div>
@@ -1172,10 +1261,14 @@ footer {
     <div class="console-wrap reveal" id="console-wrap">
       <div class="console" id="console">
         <div class="laser-edge"></div>
+        <div class="console-scroll">
         <div class="console-head">
           <div class="dots"><i></i><i></i><i></i></div>
           <div class="console-title"><i>&gt;</i> WORKBENCH // 创作会话 001</div>
           <div class="right">
+            <button class="console-size-reset" id="workbench-reset-size" type="button" title="恢复工作台尺寸" aria-label="恢复工作台尺寸">
+              <i data-lucide="maximize-2"></i>
+            </button>
             <div class="conn-pill offline" id="console-conn" style="padding:5px 11px;font-size:10px">
               <span class="led"></span><span id="console-conn-text">未连接</span>
             </div>
@@ -1310,21 +1403,30 @@ footer {
               <div class="field-label"><span>功率</span><span class="hint">POWER</span></div>
               <div class="param-slider-row">
                 <input type="range" id="power" min="10" max="100" value="72">
-                <div class="val" id="power-val">72<span class="unit">%</span></div>
+                <div class="val" id="power-val">
+                  <input type="number" min="10" max="100" step="1" value="72" inputmode="numeric" aria-label="功率">
+                  <span class="unit">%</span>
+                </div>
               </div>
             </div>
             <div class="param-block">
               <div class="field-label"><span>速度</span><span class="hint">SPEED</span></div>
               <div class="param-slider-row">
                 <input type="range" id="speed" min="10" max="200" value="120">
-                <div class="val" id="speed-val">120<span class="unit">mm/s</span></div>
+                <div class="val" id="speed-val">
+                  <input type="number" min="10" max="200" step="1" value="120" inputmode="numeric" aria-label="速度">
+                  <span class="unit">mm/s</span>
+                </div>
               </div>
             </div>
             <div class="param-block">
               <div class="field-label"><span>厚度</span><span class="hint">THICKNESS</span></div>
               <div class="param-slider-row">
                 <input type="range" id="thickness" min="1" max="20" value="3" step="0.1">
-                <div class="val" id="thickness-val">3.0<span class="unit">mm</span></div>
+                <div class="val" id="thickness-val">
+                  <input type="number" min="1" max="20" step="0.1" value="3.0" inputmode="decimal" aria-label="厚度">
+                  <span class="unit">mm</span>
+                </div>
               </div>
             </div>
 
@@ -1360,7 +1462,6 @@ footer {
           </div>
           <div class="preview-body">
             <div class="preview-stage">
-              <div class="crosshair"></div>
               <canvas id="preview-canvas"></canvas>
               <div class="scanline" id="scanline"></div>
               <div class="preview-empty" id="preview-empty">
@@ -1375,8 +1476,8 @@ footer {
                 <div class="psc-value" id="meta-model">LASER-MOS-550W</div>
               </div>
               <div class="preview-side-card">
-                <div class="psc-label">预估工时</div>
-                <div class="psc-value eta" id="meta-eta">ETA —</div>
+                <div class="psc-label">预计加工时长</div>
+                <div class="psc-value eta" id="meta-eta">—</div>
               </div>
               <div class="preview-side-card" id="preview-warn-card" hidden>
                 <div class="psc-label">参数提示</div>
@@ -1387,6 +1488,12 @@ footer {
             </div>
           </div>
         </div>
+        </div>
+        <div class="console-resize-handle console-resize-left" data-resize-axis="x" data-resize-side="left" title="调整工作台左侧宽度" aria-hidden="true"></div>
+        <div class="console-resize-handle console-resize-right" data-resize-axis="x" data-resize-side="right" title="调整工作台右侧宽度" aria-hidden="true"></div>
+        <div class="console-resize-handle console-resize-bottom" data-resize-axis="y" data-resize-side="right" title="调整工作台高度" aria-hidden="true"></div>
+        <div class="console-resize-handle console-resize-corner console-resize-corner-left" data-resize-axis="xy" data-resize-side="left" title="调整工作台左下角" aria-hidden="true"></div>
+        <div class="console-resize-handle console-resize-corner" data-resize-axis="xy" data-resize-side="right" title="调整工作台右下角" aria-hidden="true"></div>
       </div>
     </div>
   </section>
@@ -1607,6 +1714,11 @@ footer {
   const consoleEl = $("#console");
   const wrap = $("#console-wrap");
   wrap.addEventListener("pointermove", (e) => {
+    if (consoleEl.classList.contains("resizing") || consoleEl.classList.contains("has-custom-size")) return;
+    if (e.target.closest(".console-resize-handle")) {
+      consoleEl.style.transform = "none";
+      return;
+    }
     const r = wrap.getBoundingClientRect();
     const px = (e.clientX - r.left) / r.width - 0.5;
     const py = (e.clientY - r.top) / r.height - 0.5;
@@ -1614,8 +1726,138 @@ footer {
       `rotateX(${(-py * 3.4).toFixed(2)}deg) rotateY(${(px * 3.4).toFixed(2)}deg) translateZ(0)`;
   });
   wrap.addEventListener("pointerleave", () => {
+    if (consoleEl.classList.contains("resizing")) return;
     consoleEl.style.transform = "rotateX(0deg) rotateY(0deg)";
   });
+
+  /* ---------- 工作台尺寸（边缘直接拖拽，窄屏也保留） ---------- */
+  const WORKBENCH_SIZE_KEY = "laser-forge-workbench-size-v1";
+  const WORKBENCH_MIN_WIDTH = 720;
+  const WORKBENCH_MIN_HEIGHT = 620;
+  let workbenchSize = null;
+
+  function workbenchLimits() {
+    const availableWidth = Math.max(1, wrap.clientWidth);
+    const minWidth = Math.min(
+      window.matchMedia("(min-width: 1021px)").matches ? WORKBENCH_MIN_WIDTH : 320,
+      availableWidth,
+    );
+    const maxHeight = Math.max(WORKBENCH_MIN_HEIGHT, Math.min(2400, Math.round(window.innerHeight * 2.2)));
+    return {
+      minWidth,
+      maxWidth: availableWidth,
+      minHeight: WORKBENCH_MIN_HEIGHT,
+      maxHeight,
+    };
+  }
+
+  function clampWorkbenchSize(width, height, left = 0) {
+    const limits = workbenchLimits();
+    const maxLeft = Math.max(0, limits.maxWidth - limits.minWidth);
+    const safeLeft = clamp(Number(left) || 0, 0, maxLeft);
+    return {
+      left: safeLeft,
+      width: clamp(Number(width) || limits.maxWidth - safeLeft, limits.minWidth, limits.maxWidth - safeLeft),
+      height: clamp(Number(height) || WORKBENCH_MIN_HEIGHT, limits.minHeight, limits.maxHeight),
+    };
+  }
+
+  function saveWorkbenchSize(size) {
+    try { localStorage.setItem(WORKBENCH_SIZE_KEY, JSON.stringify(size)); } catch (e) { /* storage unavailable */ }
+  }
+
+  function applyWorkbenchSize(size, persist = true) {
+    const currentLeft = Number.isFinite(Number(workbenchSize?.left)) ? Number(workbenchSize.left) : 0;
+    const requestedLeft = Object.prototype.hasOwnProperty.call(size, "left") ? Number(size.left) : currentLeft;
+    const left = Number.isFinite(requestedLeft) ? requestedLeft : currentLeft;
+    const next = clampWorkbenchSize(size.width, size.height, left);
+    workbenchSize = next;
+    consoleEl.classList.add("has-custom-size");
+    consoleEl.style.width = `${next.width}px`;
+    consoleEl.style.height = `${next.height}px`;
+    consoleEl.style.left = `${next.left}px`;
+    if (persist) saveWorkbenchSize(workbenchSize);
+  }
+
+  function readWorkbenchSize() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(WORKBENCH_SIZE_KEY) || "null");
+      if (parsed && Number.isFinite(Number(parsed.width)) && Number.isFinite(Number(parsed.height))) return parsed;
+    } catch (e) { /* ignore invalid local state */ }
+    return null;
+  }
+
+  function resetWorkbenchSize() {
+    try { localStorage.removeItem(WORKBENCH_SIZE_KEY); } catch (e) { /* storage unavailable */ }
+    workbenchSize = null;
+    consoleEl.classList.remove("has-custom-size");
+    consoleEl.style.removeProperty("width");
+    consoleEl.style.removeProperty("height");
+    consoleEl.style.removeProperty("left");
+    consoleEl.classList.remove("resizing");
+    consoleEl.style.transform = "rotateX(0deg) rotateY(0deg)";
+  }
+
+  function startWorkbenchResize(event) {
+    if (event.button !== 0 || consoleEl.classList.contains("resizing")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const axis = event.currentTarget.dataset.resizeAxis || "xy";
+    const side = event.currentTarget.dataset.resizeSide || "right";
+    consoleEl.classList.add("resizing");
+    consoleEl.style.transform = "none";
+    const start = { x: event.clientX, y: event.clientY, width: consoleEl.offsetWidth, height: consoleEl.offsetHeight };
+    const startLeft = Number.isFinite(Number(workbenchSize?.left)) ? Number(workbenchSize.left) : 0;
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+
+    const onMove = (moveEvent) => {
+      if (moveEvent.pointerId !== event.pointerId) return;
+      const dx = moveEvent.clientX - start.x;
+      const dy = moveEvent.clientY - start.y;
+      const limits = workbenchLimits();
+      let nextWidth = start.width;
+      let nextLeft = startLeft;
+      if (axis.includes("x")) {
+        if (side === "left") {
+          const fixedRight = startLeft + start.width;
+          nextLeft = clamp(startLeft + dx, 0, Math.max(0, fixedRight - limits.minWidth));
+          nextWidth = fixedRight - nextLeft;
+        } else {
+          nextWidth = start.width + dx;
+        }
+      }
+      applyWorkbenchSize({
+        width: nextWidth,
+        height: axis.includes("y") ? start.height + dy : start.height,
+        left: nextLeft,
+      }, false);
+    };
+    const onUp = (endEvent) => {
+      if (endEvent && endEvent.pointerId !== event.pointerId) return;
+      if (workbenchSize) saveWorkbenchSize(workbenchSize);
+      consoleEl.classList.remove("resizing");
+      consoleEl.style.transform = "rotateX(0deg) rotateY(0deg)";
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      handle.removeEventListener("lostpointercapture", onUp);
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    handle.addEventListener("lostpointercapture", onUp);
+  }
+
+  $("#workbench-reset-size").addEventListener("click", resetWorkbenchSize);
+  $$(".console-resize-handle").forEach((handle) => handle.addEventListener("pointerdown", startWorkbenchResize));
+  function syncWorkbenchResponsiveSize() {
+    if (workbenchSize) applyWorkbenchSize(workbenchSize, false);
+  }
+  workbenchSize = readWorkbenchSize();
+  syncWorkbenchResponsiveSize();
+  window.addEventListener("resize", syncWorkbenchResponsiveSize);
 
   /* ---------- 滑块填充 ---------- */
   const paintSlider = (slider) => {
@@ -1692,6 +1934,72 @@ footer {
     if (opt && opt.thicknesses.length) return opt.thicknesses[0];
     return 3;
   }
+
+  const PARAMETER_FIELDS = {
+    power: { sliderId: "power", valueId: "power-val", min: 10, max: 100, step: 1, precision: 0 },
+    speed: { sliderId: "speed", valueId: "speed-val", min: 10, max: 200, step: 1, precision: 0 },
+    thickness: { sliderId: "thickness", valueId: "thickness-val", min: 1, max: 20, step: 0.1, precision: 1 },
+  };
+
+  function parameterInput(name) {
+    return $(`#${PARAMETER_FIELDS[name].valueId} input`);
+  }
+
+  function formatParameterValue(name, value) {
+    return Number(value).toFixed(PARAMETER_FIELDS[name].precision);
+  }
+
+  function normalizeParameterValue(name, value) {
+    const cfg = PARAMETER_FIELDS[name];
+    const stepped = Math.round(Number(value) / cfg.step) * cfg.step;
+    return Number(clamp(stepped, cfg.min, cfg.max).toFixed(cfg.precision));
+  }
+
+  function isValidParameterInput(name, value) {
+    const cfg = PARAMETER_FIELDS[name];
+    if (!Number.isFinite(value) || value < cfg.min || value > cfg.max) return false;
+    const steps = Math.round((value - cfg.min) / cfg.step);
+    return Math.abs(value - (cfg.min + steps * cfg.step)) < 1e-7;
+  }
+
+  function syncParameterValue(name, value) {
+    const cfg = PARAMETER_FIELDS[name];
+    const next = normalizeParameterValue(name, value);
+    const slider = $(`#${cfg.sliderId}`);
+    const input = parameterInput(name);
+    state[name] = next;
+    slider.value = next;
+    paintSlider(slider);
+    input.value = formatParameterValue(name, next);
+    input.dataset.lastValid = String(next);
+    input.classList.remove("invalid");
+    input.setAttribute("aria-invalid", "false");
+  }
+
+  function syncParameterFromInput(name, commit) {
+    const input = parameterInput(name);
+    const raw = input.value.trim();
+    const value = Number(raw);
+    if (!raw || !isValidParameterInput(name, value)) {
+      input.classList.add("invalid");
+      input.setAttribute("aria-invalid", "true");
+      if (commit) syncParameterValue(name, state[name]);
+      return false;
+    }
+
+    const next = normalizeParameterValue(name, value);
+    const slider = $(`#${PARAMETER_FIELDS[name].sliderId}`);
+    state[name] = next;
+    slider.value = next;
+    paintSlider(slider);
+    input.dataset.lastValid = String(next);
+    input.classList.remove("invalid");
+    input.setAttribute("aria-invalid", "false");
+    if (commit) input.value = formatParameterValue(name, next);
+    if (name === "thickness") scheduleRecommendation();
+    return true;
+  }
+
   // state.mode → 推荐 API 参数（engrave→raster，line→outline，cut→不传 engraving_mode）
   function modeApi() {
     if (state.mode === "cut") return { laser_mode: "cut", engraving_mode: "" };
@@ -1708,19 +2016,12 @@ footer {
 
   /* ---------- 滑块套用 ---------- */
   function applySliderValues(power, speed, thickness) {
-    const powerEl = $("#power"), speedEl = $("#speed"), thickEl = $("#thickness");
-    powerEl.value = power; state.power = power;
-    $("#power-val").innerHTML = power + '<span class="unit">%</span>'; paintSlider(powerEl);
-    speedEl.value = speed; state.speed = speed;
-    $("#speed-val").innerHTML = speed + '<span class="unit">mm/s</span>'; paintSlider(speedEl);
-    thickEl.value = thickness; state.thickness = thickness;
-    $("#thickness-val").innerHTML = Number(thickness).toFixed(1) + '<span class="unit">mm</span>'; paintSlider(thickEl);
+    syncParameterValue("power", power);
+    syncParameterValue("speed", speed);
+    syncParameterValue("thickness", thickness);
   }
   function syncThicknessSlider() {
-    const el = $("#thickness");
-    el.value = state.thickness;
-    $("#thickness-val").innerHTML = Number(state.thickness).toFixed(1) + '<span class="unit">mm</span>';
-    paintSlider(el);
+    syncParameterValue("thickness", state.thickness);
   }
 
   /* ---------- 参数推荐套用（材料+厚度+模式 → GET /api/ui/material-recommendation） ---------- */
@@ -2441,17 +2742,28 @@ footer {
 
   /* ---------- 滑块联动 ---------- */
   $("#power").addEventListener("input", () => {
-    state.power = +$("#power").value;
-    $("#power-val").innerHTML = state.power + '<span class="unit">%</span>';
+    syncParameterValue("power", +$("#power").value);
   });
   $("#speed").addEventListener("input", () => {
-    state.speed = +$("#speed").value;
-    $("#speed-val").innerHTML = state.speed + '<span class="unit">mm/s</span>';
+    syncParameterValue("speed", +$("#speed").value);
   });
   $("#thickness").addEventListener("input", () => {
-    state.thickness = +$("#thickness").value;
-    $("#thickness-val").innerHTML = state.thickness.toFixed(1) + '<span class="unit">mm</span>';
+    syncParameterValue("thickness", +$("#thickness").value);
     scheduleRecommendation();
+  });
+
+  ["power", "speed", "thickness"].forEach((name) => {
+    const input = parameterInput(name);
+    syncParameterValue(name, state[name]);
+    input.addEventListener("input", () => syncParameterFromInput(name, false));
+    input.addEventListener("change", () => syncParameterFromInput(name, true));
+    input.addEventListener("blur", () => syncParameterFromInput(name, true));
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      syncParameterFromInput(name, true);
+      input.blur();
+    });
   });
 
   /* ---------- 工具切换 ---------- */
@@ -2769,7 +3081,7 @@ footer {
     if (carveTimer) { cancelAnimationFrame(carveTimer); carveTimer = null; }
     scanline.classList.remove("on");
     $("#preview-label").textContent = "等待输入";
-    $("#meta-eta").textContent = "ETA —";
+    $("#meta-eta").textContent = "—";
     fillEl.style.width = "0%";
     state.lines = 0;
     state.workflowId = "";
@@ -2787,7 +3099,13 @@ footer {
     if (previewState === "idle") { emptyEl.hidden = false; return; }
     emptyEl.hidden = true;
     if (previewState === "image" && previewImage) {
-      pctx.drawImage(previewImage, 0, 0, r.width, r.height);
+      const imageRatio = previewImage.naturalWidth / previewImage.naturalHeight;
+      const stageRatio = r.width / r.height;
+      const drawWidth = stageRatio > imageRatio ? r.height * imageRatio : r.width;
+      const drawHeight = stageRatio > imageRatio ? r.height : r.width / imageRatio;
+      const drawX = (r.width - drawWidth) / 2;
+      const drawY = (r.height - drawHeight) / 2;
+      pctx.drawImage(previewImage, drawX, drawY, drawWidth, drawHeight);
       return;
     }
 
@@ -2847,9 +3165,16 @@ footer {
     pctx.shadowBlur = 0;
   }
 
-  function formatEta(s) {
-    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
-    return pad2(m) + ":" + pad2(sec);
+  function formatDuration(s) {
+    const totalSeconds = Math.max(0, Math.floor(Number(s) || 0));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts = [];
+    if (hours) parts.push(hours + " 小时");
+    if (minutes || hours) parts.push(minutes + " 分");
+    if (seconds || !parts.length) parts.push(pad2(seconds) + " 秒");
+    return parts.join(" ");
   }
 
   /* ---------- 参数推荐 ---------- */
@@ -3004,8 +3329,8 @@ footer {
     const eta = timeEstimate.estimated_seconds;
     if (typeof eta === "number") {
       state.totalSeconds = Math.round(eta);
-      $("#stat-time").textContent = formatEta(eta);
-      $("#meta-eta").textContent = "ETA " + formatEta(eta);
+      $("#stat-time").textContent = formatDuration(eta);
+      $("#meta-eta").textContent = formatDuration(eta);
     }
     if (typeof artifacts.gcode_file === "string" && artifacts.gcode_file) {
       state.lines = 1;
