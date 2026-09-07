@@ -94,7 +94,8 @@ class OpenAppToolTests(unittest.TestCase):
 
         open_app_tool.register_tool(fake_mcp)
         with patch.object(open_app_tool.subprocess, "Popen", popen):
-            result = fake_mcp.tools["open_jsjds_website_tool"]()
+            with patch.object(open_app_tool, "system", "Windows"):
+                result = fake_mcp.tools["open_jsjds_website_tool"]()
 
         self.assertTrue(result["success"], result)
         self.assertEqual(result["result"], "已打开中国大学生计算机设计大赛官网")
